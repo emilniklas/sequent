@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "name": "sequent",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "ls packages | xargs -I% -- bun --cwd packages/% build"
+  }
+}

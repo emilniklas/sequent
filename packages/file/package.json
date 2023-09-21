@@ -1,0 +1,22 @@
+{
+  "name": "@sequent/file",
+  "type": "module",
+  "dependencies": {
+    "lockfile": "^1.0.2"
+  },
+  "peerDependencies": {
+    "@sequent/core": "*"
+  },
+  "devDependencies": {
+    "@sequent/core": "file:../core",
+    "@types/lockfile": "^1.0.2",
+    "bun-types": "^1.0.2",
+    "typescript": "^5.2.2"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}
