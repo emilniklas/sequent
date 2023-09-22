@@ -35,10 +35,12 @@ describe("@sequent/in-memory", () => {
         onExit,
       });
     });
-    factory = new KafkaTopicFactory({
-      brokers: [`127.0.0.1:${port}`],
-      logLevel: kafka.logLevel.NOTHING,
-    });
+    factory = new KafkaTopicFactory(
+      new kafka.Kafka({
+        brokers: [`127.0.0.1:${port}`],
+        logLevel: kafka.logLevel.NOTHING,
+      })
+    );
   });
 
   afterAll(async () => {

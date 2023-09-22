@@ -1,22 +1,22 @@
 {
   "name": "@sequent/kafka",
   "type": "module",
-  "dependencies": {
-    "kafkajs": "^2.2.4"
-  },
   "peerDependencies": {
-    "@sequent/core": "*"
+    "@sequent/core": "*",
+    "kafkajs": "^2.2.4"
   },
   "devDependencies": {
     "@sequent/core": "file:../core",
     "bun-types": "^1.0.2",
     "get-port": "^7.0.0",
+    "kafkajs": "^2.2.4",
     "typescript": "^5.2.2"
   },
   "exports": {
     ".": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit"
   }
 }

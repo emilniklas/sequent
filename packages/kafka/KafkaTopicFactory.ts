@@ -3,20 +3,14 @@ import { Codec, JSONCodec, Topic, TopicFactory } from "@sequent/core";
 import { KafkaTopic } from "./KafkaTopic.js";
 
 export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
-  readonly #options: kafka.KafkaConfig;
   readonly #codec: Codec<any>;
-
   readonly #client: kafka.Kafka;
   readonly #disposableStack = new AsyncDisposableStack();
   #admin?: kafka.Admin;
 
-  constructor({
-    codec,
-    ...options
-  }: kafka.KafkaConfig & { codec?: Codec<any> }) {
-    this.#options = options;
-    this.#codec = codec ?? new JSONCodec();
-    this.#client = new kafka.Kafka(this.#options);
+  constructor(client: kafka.Kafka, opts: { codec?: Codec<any> } = {}) {
+    this.#client = client;
+    this.#codec = opts.codec ?? new JSONCodec();
   }
 
   async make<TEvent>(name: string): Promise<Topic<TEvent>> {
