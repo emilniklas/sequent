@@ -14,7 +14,7 @@ export class CollectionFactory
   }
 
   async make<TModel extends Document>(
-    namespace: string
+    namespace: string,
   ): Promise<Collection<TModel>> {
     return this.#db.collection<TModel>(namespace, this.#options);
   }

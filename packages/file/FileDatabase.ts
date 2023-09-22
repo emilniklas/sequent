@@ -1,8 +1,4 @@
-import {
-  Casing,
-  Codec,
-  ReadModelClientFactory,
-} from "@sequent/core";
+import { Casing, Codec, ReadModelClientFactory } from "@sequent/core";
 import { mkdirSync } from "node:fs";
 import { writeFile, readdir, readFile } from "node:fs/promises";
 import * as path from "node:path";
@@ -24,7 +20,7 @@ export class FileDatabase<TModel> {
   async insert(id: string, model: TModel) {
     await writeFile(
       path.join(this.#directory, id),
-      this.#codec.serialize(model)
+      this.#codec.serialize(model),
     );
   }
 
@@ -47,7 +43,7 @@ export class FileDatabase<TModel> {
   }
 
   async #read(
-    filename: string
+    filename: string,
   ): Promise<FileDatabaseEntry<TModel> | undefined> {
     try {
       const model = this.#codec.deserialize(await readFile(filename));

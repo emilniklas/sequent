@@ -9,7 +9,7 @@ export class KafkaProducer<TEvent> implements Producer<TEvent> {
   constructor(
     serializer: Serializer<TEvent>,
     producer: kafka.Producer,
-    topicName: string
+    topicName: string,
   ) {
     this.#serializer = serializer;
     this.#producer = producer;
@@ -19,7 +19,7 @@ export class KafkaProducer<TEvent> implements Producer<TEvent> {
   static async new<TEvent>(
     serializer: Serializer<TEvent>,
     client: kafka.Kafka,
-    topicName: string
+    topicName: string,
   ): Promise<KafkaProducer<TEvent>> {
     const producer = client.producer({ allowAutoTopicCreation: false });
     await producer.connect();

@@ -10,7 +10,7 @@ export class FileConsumer<TEvent> implements Consumer<TEvent> {
   constructor(
     topic: FileTopic<TEvent>,
     deserializer: Deserializer<TEvent>,
-    offset: FileMutex<number>
+    offset: FileMutex<number>,
   ) {
     this.#topic = topic;
     this.#deserializer = deserializer;
@@ -20,7 +20,7 @@ export class FileConsumer<TEvent> implements Consumer<TEvent> {
   async #pollRead(
     guard: FileMutexGuard<number>,
     offset: number,
-    length: number
+    length: number,
   ): Promise<[Uint8Array, FileMutexGuard<number>]> {
     let data = await this.#topic.read(guard.state + offset, length);
     while (data == null) {

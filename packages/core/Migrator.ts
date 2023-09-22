@@ -33,9 +33,9 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
         await sourceTopic.consumer(
           ConsumerGroup.join(
             `${sourceTopic.name}-${destinationTopic.name}`,
-            StartFrom.Beginning
-          )
-        )
+            StartFrom.Beginning,
+          ),
+        ),
       );
 
       const destinationProducer = stack.use(await destinationTopic.producer());

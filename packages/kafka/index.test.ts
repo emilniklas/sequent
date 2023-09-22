@@ -39,7 +39,7 @@ describe("@sequent/in-memory", () => {
       new kafka.Kafka({
         brokers: [`127.0.0.1:${port}`],
         logLevel: kafka.logLevel.NOTHING,
-      })
+      }),
     );
   });
 

@@ -50,7 +50,7 @@ export namespace ConsumerGroup {
 
   export function join(
     name: string,
-    startFrom = StartFrom.Beginning
+    startFrom = StartFrom.Beginning,
   ): ConsumerGroup {
     return {
       name,

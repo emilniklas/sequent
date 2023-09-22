@@ -10,7 +10,7 @@ export interface ReadModelClientFactory<TClient> {
 
 export type Ingestor<TEvent, TClient> = (
   event: Event<TEvent>,
-  client: TClient
+  client: TClient,
 ) => void | Promise<void>;
 
 interface RegisteredIngestor<TEvent, TClient> {
@@ -25,14 +25,14 @@ export class ReadModel<TModel, TClient extends object> {
 
   private constructor(
     name: string,
-    ingestors: RegisteredIngestor<any, TClient>[]
+    ingestors: RegisteredIngestor<any, TClient>[],
   ) {
     this.#name = name;
     this.#ingestors = ingestors;
   }
 
   static new<TModel, TClient extends object>(
-    name: string
+    name: string,
   ): ReadModel<TModel, TClient> {
     return new ReadModel(name, []);
   }
@@ -40,7 +40,7 @@ export class ReadModel<TModel, TClient extends object> {
   on<TEvent>(
     eventType: EventType<TEvent>,
     ingestor: Ingestor<TEvent, TClient>,
-    { nonce = 0 }: { nonce?: number } = {}
+    { nonce = 0 }: { nonce?: number } = {},
   ): ReadModel<TModel, TClient> {
     return new ReadModel(this.#name, [
       ...this.#ingestors,
@@ -51,20 +51,20 @@ export class ReadModel<TModel, TClient extends object> {
   async start(
     topicFactory: TopicFactory,
     clientFactory: ReadModelClientFactory<TClient>,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<TClient> {
     const data = this.#ingestors
       .map(
         ({ eventType, nonce, ingestor }) =>
-          eventType.toString() + nonce.toString() + ingestor.toString()
+          eventType.toString() + nonce.toString() + ingestor.toString(),
       )
       .join();
 
     const digest = Array.from(
       new Uint8Array(
-        await crypto.subtle.digest("SHA-1", new TextEncoder().encode(data))
+        await crypto.subtle.digest("SHA-1", new TextEncoder().encode(data)),
       ),
-      (b) => b.toString(16).padStart(2, "0")
+      (b) => b.toString(16).padStart(2, "0"),
     ).join("");
 
     const namespace =
@@ -80,10 +80,12 @@ export class ReadModel<TModel, TClient extends object> {
     await Promise.all(
       this.#ingestors.map(async ({ eventType, ingestor }) => {
         const topic = await topicFactory.make<Event<any>>(
-          await eventType.topicName()
+          await eventType.topicName(),
         );
         const consumer = stack.use(
-          await topic.consumer(ConsumerGroup.join(`${namespace}-${topic.name}`))
+          await topic.consumer(
+            ConsumerGroup.join(`${namespace}-${topic.name}`),
+          ),
         );
         (async () => {
           while (!stack.disposed) {
@@ -97,7 +99,7 @@ export class ReadModel<TModel, TClient extends object> {
             await envelope[Symbol.asyncDispose]();
           }
         })();
-      })
+      }),
     );
 
     if (Symbol.dispose in client || Symbol.asyncDispose in client) {

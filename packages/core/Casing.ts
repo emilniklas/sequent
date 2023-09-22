@@ -13,7 +13,7 @@ export namespace Casing {
         input
           .split(/(?:(?<=[a-z])(?=[A-Z0-9])|[-_\s]+|(?=[A-Z][a-z]))/g)
           .map((s) => s.trim().toLowerCase())
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
 

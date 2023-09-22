@@ -5,6 +5,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "ls packages | xargs -I% -- bun --cwd packages/% build"
+    "format": "prettier --write packages/**/*.ts",
+    "build": "ls packages | xargs -I% -- bun --cwd packages/% build",
+    "check": "ls packages | xargs -I% -- bun --cwd packages/% check"
+  },
+  "devDependencies": {
+    "prettier": "^3.0.3"
   }
 }

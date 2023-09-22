@@ -1,14 +1,16 @@
+import { Codec, Mutex, MutexGuard, Serializer } from "@sequent/core";
 import {
-  Codec,
-  Mutex,
-  MutexGuard,
-  Serializer,
-} from "@sequent/core";
-import { lock as lockCb, unlock as unlockCb, Options as LockOptions } from "lockfile";
+  lock as lockCb,
+  unlock as unlockCb,
+  Options as LockOptions,
+} from "lockfile";
 import { readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 
-const lock = promisify(lockCb) as (path: string, options: LockOptions) => Promise<void>;
+const lock = promisify(lockCb) as (
+  path: string,
+  options: LockOptions,
+) => Promise<void>;
 const unlock = promisify(unlockCb);
 
 export class FileMutex<T> implements Mutex<T> {

@@ -18,7 +18,7 @@ export class KafkaConsumer<TEvent> implements Consumer<TEvent> {
     deserializer: Deserializer<TEvent>,
     consumer: kafka.Consumer,
     topicName: string,
-    group: ConsumerGroup
+    group: ConsumerGroup,
   ) {
     this.#deserializer = deserializer;
     this.#consumer = consumer;
@@ -41,7 +41,7 @@ export class KafkaConsumer<TEvent> implements Consumer<TEvent> {
     deserializer: Deserializer<TEvent>,
     client: kafka.Kafka,
     topicName: string,
-    group: ConsumerGroup
+    group: ConsumerGroup,
   ): Promise<KafkaConsumer<TEvent>> {
     const consumer = client.consumer({
       groupId: group.name,

@@ -1,11 +1,5 @@
 import * as kafka from "kafkajs";
-import {
-  Codec,
-  Consumer,
-  ConsumerGroup,
-  Producer,
-  Topic,
-} from "@sequent/core";
+import { Codec, Consumer, ConsumerGroup, Producer, Topic } from "@sequent/core";
 import { KafkaConsumer } from "./KafkaConsumer.js";
 import { KafkaProducer } from "./KafkaProducer.js";
 
@@ -23,13 +17,13 @@ export class KafkaTopic<TEvent> implements Topic<TEvent>, AsyncDisposable {
 
   async producer(): Promise<Producer<TEvent>> {
     return this.#disposableStack.use(
-      await KafkaProducer.new(this.#codec, this.#client, this.name)
+      await KafkaProducer.new(this.#codec, this.#client, this.name),
     );
   }
 
   async consumer(group: ConsumerGroup): Promise<Consumer<TEvent>> {
     return this.#disposableStack.use(
-      await KafkaConsumer.new(this.#codec, this.#client, this.name, group)
+      await KafkaConsumer.new(this.#codec, this.#client, this.name, group),
     );
   }
 

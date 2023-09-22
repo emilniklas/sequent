@@ -142,8 +142,8 @@ export namespace Log {
     Record<Severity, number> = Object.assign(
     [undefined, ...Object.values(Severity)] as const,
     Object.fromEntries(
-      Object.values(Severity).map((severity, i) => [severity, i + 1])
-    ) as Record<Severity, number>
+      Object.values(Severity).map((severity, i) => [severity, i + 1]),
+    ) as Record<Severity, number>,
   );
 
   export interface Formatter<TFormat> {
@@ -216,6 +216,6 @@ export namespace Log.Sink {
 export namespace Logger {
   export const DEFAULT = new Logger<string | Uint8Array>(
     Log.Formatter.DEFAULT,
-    Log.Sink.DEFAULT
+    Log.Sink.DEFAULT,
   );
 }

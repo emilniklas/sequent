@@ -33,7 +33,7 @@ export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
     });
 
     return this.#disposableStack.use(
-      new KafkaTopic<TEvent>(this.#client, this.#codec, name)
+      new KafkaTopic<TEvent>(this.#client, this.#codec, name),
     );
   }
 

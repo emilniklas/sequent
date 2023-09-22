@@ -1,8 +1,4 @@
-import {
-  ConsumerGroup,
-  StartFrom,
-  Topic,
-} from "@sequent/core";
+import { ConsumerGroup, StartFrom, Topic } from "@sequent/core";
 import { InMemoryProducer } from "./InMemoryProducer.js";
 import { InMemoryConsumer } from "./InMemoryConsumer.js";
 
@@ -36,7 +32,7 @@ export class InMemoryTopic<TEvent> implements Topic<TEvent> {
       }
       this.#consumers.set(
         group.name,
-        (consumer = new InMemoryConsumer(this, startOffset))
+        (consumer = new InMemoryConsumer(this, startOffset)),
       );
     }
 

@@ -5,12 +5,7 @@ import {
   InMemoryDatabase,
   InMemoryDatabaseReadModelClientFactory,
 } from "./InMemoryDatabase.js";
-import {
-  ConsumerGroup,
-  EventType,
-  ReadModel,
-  TypeSpec,
-} from "@sequent/core";
+import { ConsumerGroup, EventType, ReadModel, TypeSpec } from "@sequent/core";
 
 describe("@sequent/in-memory", () => {
   it("implements topic factory", async () => {
@@ -48,7 +43,7 @@ describe("@sequent/in-memory", () => {
       "EntityCreated",
       TypeSpec.Record({
         name: TypeSpec.String,
-      })
+      }),
     );
 
     interface InMemoryEntity {
@@ -70,12 +65,9 @@ describe("@sequent/in-memory", () => {
         EntityCreated,
         (event, db) => {
           db.add({ name: event.message.name });
-        }
+        },
       );
-      const client = await InMemoryEntity.start(
-        topicFactory,
-        clientFactory
-      );
+      const client = await InMemoryEntity.start(topicFactory, clientFactory);
 
       await Bun.sleep(0);
 
@@ -92,12 +84,9 @@ describe("@sequent/in-memory", () => {
         EntityCreated,
         (event, db) => {
           db.add({ name: event.message.name + "!" });
-        }
+        },
       );
-      const client = await InMemoryEntity.start(
-        topicFactory,
-        clientFactory
-      );
+      const client = await InMemoryEntity.start(topicFactory, clientFactory);
 
       await Bun.sleep(0);
 
@@ -116,7 +105,7 @@ describe("@sequent/in-memory", () => {
       "Event",
       TypeSpec.Record({
         a: TypeSpec.String,
-      })
+      }),
     );
 
     {
@@ -147,7 +136,7 @@ describe("@sequent/in-memory", () => {
 
     const consumer = await Event2.consumer(
       topicFactory,
-      ConsumerGroup.anonymous()
+      ConsumerGroup.anonymous(),
     );
 
     const events: EventType.TypeOf<typeof Event2>[] = [];

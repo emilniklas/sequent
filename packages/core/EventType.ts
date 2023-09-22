@@ -20,7 +20,7 @@ export class EventType<TEvent> {
     name: string,
     spec: TypeSpec,
     migrators: Migrator<any, any>[],
-    nonce: number
+    nonce: number,
   ) {
     this.#name = name;
     this.#spec = spec;
@@ -31,7 +31,7 @@ export class EventType<TEvent> {
   static new<TSpec extends TypeSpec>(
     name: string,
     spec: TSpec,
-    { nonce = 0 }: { nonce?: number } = {}
+    { nonce = 0 }: { nonce?: number } = {},
   ): EventType<TypeOf<TSpec>> {
     return new EventType<TypeOf<TSpec>>(name, spec, [], nonce);
   }
@@ -45,10 +45,10 @@ export class EventType<TEvent> {
       new Uint8Array(
         await crypto.subtle.digest(
           "SHA-1",
-          new TextEncoder().encode(this.toString() + this.#nonce.toString())
-        )
+          new TextEncoder().encode(this.toString() + this.#nonce.toString()),
+        ),
       ),
-      (b) => b.toString(16).padStart(2, "0")
+      (b) => b.toString(16).padStart(2, "0"),
     ).join("");
 
     return `${this.#name}-${hashDigest}`;
@@ -64,7 +64,7 @@ export class EventType<TEvent> {
     stack.defer(() => controller.abort());
 
     await Promise.all(
-      this.#migrators.map((m) => m.run(topicFactory, controller.signal))
+      this.#migrators.map((m) => m.run(topicFactory, controller.signal)),
     );
     const topic = await this.topic(topicFactory);
     return new EventProducer(stack.use(await topic.producer()), stack);
@@ -72,7 +72,7 @@ export class EventType<TEvent> {
 
   async consumer(
     topicFactory: TopicFactory,
-    group: ConsumerGroup
+    group: ConsumerGroup,
   ): Promise<Consumer<Event<TEvent>>> {
     const topic = await this.topic(topicFactory);
     return topic.consumer(group);
@@ -80,7 +80,7 @@ export class EventType<TEvent> {
 
   addFields<TSpec extends { readonly [field: string]: TypeSpec }>(
     fields: NewFields<TEvent, TSpec>,
-    { nonce = 0 }: { nonce?: number } = {}
+    { nonce = 0 }: { nonce?: number } = {},
   ): EventType<Omit<TEvent, keyof TSpec> & TypeOf<TypeSpec.Record<TSpec>>> {
     type NewTEvent = Omit<TEvent, keyof TSpec> & TypeOf<TypeSpec.Record<TSpec>>;
 
@@ -92,9 +92,9 @@ export class EventType<TEvent> {
       Object.entries(fields).map(
         ([field, { type }]: [
           keyof TSpec,
-          NewField<TEvent, TSpec[keyof TSpec]>
-        ]) => [field, type]
-      )
+          NewField<TEvent, TSpec[keyof TSpec]>,
+        ]) => [field, type],
+      ),
     );
 
     const newSpec = TypeSpec.Record({ ...this.#spec.spec, ...patchSpec });
@@ -109,9 +109,9 @@ export class EventType<TEvent> {
             Object.entries(fields).map(
               ([field, { migrate }]: [
                 keyof TSpec,
-                NewField<TEvent, TSpec[keyof TSpec]>
-              ]) => [field, migrate(event)]
-            )
+                NewField<TEvent, TSpec[keyof TSpec]>,
+              ]) => [field, migrate(event)],
+            ),
           ),
         } as NewTEvent;
       },
@@ -121,7 +121,7 @@ export class EventType<TEvent> {
       this.#name,
       newSpec,
       [...this.#migrators, migrator],
-      this.#nonce + nonce
+      this.#nonce + nonce,
     );
 
     return newType;
@@ -130,7 +130,7 @@ export class EventType<TEvent> {
 
 export type NewFields<
   TEvent,
-  TSpec extends { readonly [field: string]: TypeSpec }
+  TSpec extends { readonly [field: string]: TypeSpec },
 > = {
   readonly [TField in keyof TSpec]: NewField<TEvent, TSpec[TField]>;
 };
@@ -221,7 +221,7 @@ export namespace TypeSpec {
 
   const RECORD = Symbol("TypeSpec.Record");
   export interface Record<
-    TSpec extends { readonly [field: string]: TypeSpec }
+    TSpec extends { readonly [field: string]: TypeSpec },
   > {
     readonly type: typeof RECORD;
     readonly spec: TSpec;
@@ -230,9 +230,9 @@ export namespace TypeSpec {
     };
     toString(): string;
   }
-  export function Record<const TSpec extends { readonly [field: string]: TypeSpec }>(
-    spec: TSpec
-  ): Record<TSpec> {
+  export function Record<
+    const TSpec extends { readonly [field: string]: TypeSpec },
+  >(spec: TSpec): Record<TSpec> {
     const indent = (s: string) =>
       s
         .split("\n")
@@ -247,14 +247,14 @@ export namespace TypeSpec {
         indent(
           Object.entries(spec)
             .map(([name, spec]) => `${name}: ${spec.toString()}`)
-            .join("\n")
+            .join("\n"),
         ) +
         "\n}",
     };
   }
 
   export function isRecord(
-    spec: TypeSpec
+    spec: TypeSpec,
   ): spec is Record<{ readonly [field: string]: TypeSpec }> {
     return spec.type === RECORD;
   }

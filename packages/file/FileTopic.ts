@@ -24,7 +24,7 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
     name: string,
     directory: string,
     handle: number,
-    codec: Codec<TEvent>
+    codec: Codec<TEvent>,
   ) {
     this.name = name;
     this.#directory = directory;
@@ -35,7 +35,7 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
   static async create<TEvent>(
     directory: string,
     name: string,
-    codec: Codec<TEvent>
+    codec: Codec<TEvent>,
   ): Promise<FileTopic<TEvent>> {
     let handle = await open(path.join(directory, name + ".log"), "a+");
     if (typeof handle !== "number") {
@@ -56,7 +56,7 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
     }
     if (readn !== length) {
       throw new Error(
-        `Read length mismatch: expected to read ${length}, read ${readn}`
+        `Read length mismatch: expected to read ${length}, read ${readn}`,
       );
     }
     return data;
@@ -78,12 +78,12 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
     }
     const offsetFile = path.join(
       this.#directory,
-      this.name + "__" + group.name + ".offset"
+      this.name + "__" + group.name + ".offset",
     );
     const offsetMutex = new FileMutex<number>(
       new JSONCodec<number>(),
       offsetFile,
-      initialOffset
+      initialOffset,
     );
     return new FileConsumer<TEvent>(this, this.#codec, offsetMutex);
   }
