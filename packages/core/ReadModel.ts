@@ -5,7 +5,7 @@ import { TopicFactory } from "./TopicFactory.js";
 
 export interface ReadModelClientFactory<TClient> {
   readonly namingConvention: Casing;
-  make(namespace: string): TClient;
+  make(namespace: string): Promise<TClient>;
 }
 
 export type Ingestor<TEvent, TClient> = (
@@ -19,7 +19,7 @@ interface RegisteredIngestor<TEvent, TClient> {
   readonly nonce: number;
 }
 
-export class ReadModel<TModel, TClient> {
+export class ReadModel<TModel, TClient extends object> {
   readonly #name: string;
   readonly #ingestors: RegisteredIngestor<any, TClient>[];
 
@@ -31,7 +31,9 @@ export class ReadModel<TModel, TClient> {
     this.#ingestors = ingestors;
   }
 
-  static new<TModel, TClient>(name: string): ReadModel<TModel, TClient> {
+  static new<TModel, TClient extends object>(
+    name: string
+  ): ReadModel<TModel, TClient> {
     return new ReadModel(name, []);
   }
 
@@ -48,7 +50,8 @@ export class ReadModel<TModel, TClient> {
 
   async start(
     topicFactory: TopicFactory,
-    clientFactory: ReadModelClientFactory<TClient>
+    clientFactory: ReadModelClientFactory<TClient>,
+    signal?: AbortSignal
   ): Promise<TClient> {
     const data = this.#ingestors
       .map(
@@ -71,21 +74,35 @@ export class ReadModel<TModel, TClient> {
 
     const client = await clientFactory.make(namespace);
 
+    const stack = new AsyncDisposableStack();
+    signal?.addEventListener("abort", () => stack.disposeAsync());
+
     await Promise.all(
       this.#ingestors.map(async ({ eventType, ingestor }) => {
         const topic = await topicFactory.make<Event<any>>(
           await eventType.topicName()
         );
-        const consumer = topic.consumer(ConsumerGroup.join(namespace));
+        const consumer = stack.use(
+          await topic.consumer(ConsumerGroup.join(`${namespace}-${topic.name}`))
+        );
         (async () => {
-          while (true) {
-            const envelope = await consumer.consume();
+          while (!stack.disposed) {
+            const envelope = await consumer.consume({
+              signal,
+            });
+            if (envelope == null) {
+              continue;
+            }
             await ingestor(envelope.event, client);
             await envelope[Symbol.asyncDispose]();
           }
         })();
       })
     );
+
+    if (Symbol.dispose in client || Symbol.asyncDispose in client) {
+      stack.use(client as Disposable | AsyncDisposable);
+    }
 
     return client;
   }

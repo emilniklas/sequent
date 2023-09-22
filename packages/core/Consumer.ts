@@ -1,5 +1,7 @@
-export interface Consumer<TEvent> {
-  consume(): Promise<Envelope<TEvent>>;
+export interface Consumer<TEvent> extends AsyncDisposable {
+  consume(opts?: {
+    signal?: AbortSignal;
+  }): Promise<Envelope<TEvent> | undefined>;
 }
 
 export class Envelope<TEvent> implements AsyncDisposable {

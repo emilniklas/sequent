@@ -62,11 +62,11 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
     return data;
   }
 
-  producer(): Producer<TEvent> {
+  async producer(): Promise<Producer<TEvent>> {
     return new FileProducer<TEvent>(this, this.#codec);
   }
 
-  consumer(group: ConsumerGroup): Consumer<TEvent> {
+  async consumer(group: ConsumerGroup): Promise<Consumer<TEvent>> {
     let initialOffset: number;
     switch (group.startFrom) {
       case StartFrom.Beginning:
@@ -85,6 +85,6 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
       offsetFile,
       initialOffset
     );
-    return new FileConsumer<TEvent>(this, group, this.#codec, offsetMutex);
+    return new FileConsumer<TEvent>(this, this.#codec, offsetMutex);
   }
 }

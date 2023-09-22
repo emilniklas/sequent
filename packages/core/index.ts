@@ -1,4 +1,4 @@
-import "@hazae41/symbol-dispose-polyfill";
+import "disposablestack/auto";
 
 export * from "./Casing.js";
 export * from "./Codec.js";

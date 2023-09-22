@@ -11,4 +11,6 @@ export class InMemoryProducer<TEvent> implements Producer<TEvent> {
   async produce(event: TEvent) {
     this.#topic.push(event);
   }
+
+  async [Symbol.asyncDispose]() {}
 }

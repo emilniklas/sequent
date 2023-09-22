@@ -59,9 +59,15 @@ export class EventType<TEvent> {
   }
 
   async producer(topicFactory: TopicFactory): Promise<Producer<TEvent>> {
-    await Promise.all(this.#migrators.map((m) => m.run(topicFactory)));
+    const stack = new AsyncDisposableStack();
+    const controller = new AbortController();
+    stack.defer(() => controller.abort());
+
+    await Promise.all(
+      this.#migrators.map((m) => m.run(topicFactory, controller.signal))
+    );
     const topic = await this.topic(topicFactory);
-    return new EventProducer(topic.producer());
+    return new EventProducer(stack.use(await topic.producer()), stack);
   }
 
   async consumer(
@@ -136,9 +142,11 @@ export interface NewField<TEvent, TSpec extends TypeSpec> {
 
 class EventProducer<TEvent> implements Producer<TEvent> {
   readonly #inner: Producer<Event<TEvent>>;
+  readonly #disposable: AsyncDisposable;
 
-  constructor(inner: Producer<Event<TEvent>>) {
+  constructor(inner: Producer<Event<TEvent>>, disposable: AsyncDisposable) {
     this.#inner = inner;
+    this.#disposable = disposable;
   }
 
   async produce(event: TEvent) {
@@ -146,6 +154,10 @@ class EventProducer<TEvent> implements Producer<TEvent> {
       timestamp: new Date(),
       message: event,
     });
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.#disposable[Symbol.asyncDispose]();
   }
 }
 

@@ -19,24 +19,26 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
     this.#migration = opts.migration;
   }
 
-  run(topicFactory: TopicFactory): Promise<void> {
+  run(topicFactory: TopicFactory, signal?: AbortSignal): Promise<void> {
     if (this.#running) {
       return this.#running;
     }
 
     return (this.#running = Promise.resolve().then(async () => {
       const sourceTopic = await this.#source.topic(topicFactory);
-      const destinationType = this.#destination();
-      const destinationTopic = await destinationType.topic(topicFactory);
+      const destinationTopic = await this.#destination().topic(topicFactory);
 
-      const sourceConsumer = sourceTopic.consumer(
-        ConsumerGroup.join(
-          await destinationType.topicName(),
-          StartFrom.Beginning
+      const stack = new AsyncDisposableStack();
+      const sourceConsumer = stack.use(
+        await sourceTopic.consumer(
+          ConsumerGroup.join(
+            `${sourceTopic.name}-${destinationTopic.name}`,
+            StartFrom.Beginning
+          )
         )
       );
 
-      const destinationProducer = destinationTopic.producer();
+      const destinationProducer = stack.use(await destinationTopic.producer());
 
       return new Promise<void>(async (resolve) => {
         let caughtUp = false;
@@ -57,10 +59,19 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
           }
         };
 
+        signal?.addEventListener("abort", async () => {
+          await stack.disposeAsync();
+          clearTimeout(catchUpDelayTimer);
+          resolve();
+        });
+
         rescheduleCatchUpDelay();
 
-        while (true) {
-          const envelope = await sourceConsumer.consume();
+        while (!signal?.aborted) {
+          const envelope = await sourceConsumer.consume({ signal });
+          if (envelope == null) {
+            continue;
+          }
           try {
             rescheduleCatchUpDelay();
 

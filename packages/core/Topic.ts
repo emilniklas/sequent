@@ -3,6 +3,6 @@ import { Producer } from "./Producer.js";
 
 export interface Topic<TEvent> {
   readonly name: string;
-  producer(): Producer<TEvent>;
-  consumer(group: ConsumerGroup): Consumer<TEvent>;
+  producer(): Promise<Producer<TEvent>>;
+  consumer(group: ConsumerGroup): Promise<Consumer<TEvent>>;
 }

@@ -18,11 +18,11 @@ export class InMemoryTopic<TEvent> implements Topic<TEvent> {
     this.name = name;
   }
 
-  producer() {
+  async producer() {
     return new InMemoryProducer<TEvent>(this);
   }
 
-  consumer(group: ConsumerGroup) {
+  async consumer(group: ConsumerGroup) {
     let consumer = this.#consumers.get(group.name);
     if (consumer == null) {
       let startOffset: number;

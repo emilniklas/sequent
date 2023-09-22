@@ -19,4 +19,6 @@ export class FileProducer<TEvent> implements Producer<TEvent> {
 
     await this.#topic.append(dataWithPrefix);
   }
+
+  async [Symbol.asyncDispose]() {}
 }

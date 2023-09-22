@@ -1,26 +1,18 @@
-import {
-  Consumer,
-  ConsumerGroup,
-  Deserializer,
-  Envelope,
-} from "@sequent/core";
+import { Consumer, Deserializer, Envelope } from "@sequent/core";
 import { FileTopic } from "./FileTopic.js";
 import { FileMutex, FileMutexGuard } from "./FileMutex.js";
 
 export class FileConsumer<TEvent> implements Consumer<TEvent> {
   readonly #topic: FileTopic<TEvent>;
-  readonly #group: ConsumerGroup;
   readonly #deserializer: Deserializer<TEvent>;
   readonly #offset: FileMutex<number>;
 
   constructor(
     topic: FileTopic<TEvent>,
-    group: ConsumerGroup,
     deserializer: Deserializer<TEvent>,
     offset: FileMutex<number>
   ) {
     this.#topic = topic;
-    this.#group = group;
     this.#deserializer = deserializer;
     this.#offset = offset;
   }
@@ -61,4 +53,6 @@ export class FileConsumer<TEvent> implements Consumer<TEvent> {
       },
     });
   }
+
+  async [Symbol.asyncDispose]() {}
 }

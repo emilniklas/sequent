@@ -19,8 +19,8 @@ describe("@sequent/in-memory", () => {
     const topic = await factory.make<number>("test");
     expect(topic.name).toBe("test");
 
-    const producer = topic.producer();
-    const consumer = topic.consumer(ConsumerGroup.anonymous());
+    const producer = await topic.producer();
+    const consumer = await topic.consumer(ConsumerGroup.anonymous());
 
     await producer.produce(4);
 
@@ -72,7 +72,10 @@ describe("@sequent/in-memory", () => {
           db.add({ name: event.message.name });
         }
       );
-      const client = await InMemoryEntity.start(topicFactory, clientFactory);
+      const client = await InMemoryEntity.start(
+        topicFactory,
+        clientFactory
+      );
 
       await Bun.sleep(0);
 
@@ -91,7 +94,10 @@ describe("@sequent/in-memory", () => {
           db.add({ name: event.message.name + "!" });
         }
       );
-      const client = await InMemoryEntity.start(topicFactory, clientFactory);
+      const client = await InMemoryEntity.start(
+        topicFactory,
+        clientFactory
+      );
 
       await Bun.sleep(0);
 
@@ -146,7 +152,7 @@ describe("@sequent/in-memory", () => {
 
     const events: EventType.TypeOf<typeof Event2>[] = [];
     for (let i = 0; i < 2; i++) {
-      const envelope = await consumer.consume();
+      const envelope = (await consumer.consume())!;
       events.push(envelope.event.message);
       await envelope[Symbol.asyncDispose]();
     }

@@ -1,8 +1,16 @@
 {
-  "name": "@sequent/core",
+  "name": "@sequent/kafka",
   "type": "module",
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  },
+  "peerDependencies": {
+    "@sequent/core": "*"
+  },
   "devDependencies": {
+    "@sequent/core": "file:../core",
     "bun-types": "^1.0.2",
+    "get-port": "^7.0.0",
     "typescript": "^5.2.2"
   },
   "exports": {
@@ -10,8 +18,5 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
-  },
-  "dependencies": {
-    "disposablestack": "^1.1.2"
   }
 }

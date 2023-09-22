@@ -30,4 +30,6 @@ export class InMemoryConsumer<TEvent> implements Consumer<TEvent> {
       nack: async () => {},
     });
   }
+
+  async [Symbol.asyncDispose]() {}
 }
