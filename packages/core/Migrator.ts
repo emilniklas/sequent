@@ -1,5 +1,5 @@
 import { ConsumerGroup, StartFrom } from "./Consumer.js";
-import { EventConsumer } from "./EventConsumer.js";
+import { CatchUpOptions, EventConsumer } from "./EventConsumer.js";
 import { EventType, RawEvent } from "./EventType.js";
 import { Logger } from "./Logger.js";
 import { Topic } from "./Topic.js";
@@ -31,8 +31,14 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
   }
 
   run(
-    logger: Logger,
     topicFactory: TopicFactory,
+    {
+      logger,
+      catchUpOptions,
+    }: {
+      logger: Logger;
+      catchUpOptions?: Partial<CatchUpOptions>;
+    },
   ): Promise<RunningMigration<TSourceEvent, TDestinationEvent>> {
     if (this.#running) {
       return this.#running;
@@ -60,11 +66,11 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
       );
 
       await new Promise<void>(async (onCatchUp) => {
-        const sourceConsumer = new EventConsumer(
-          migrationLogger,
-          sourceConsumerRaw,
+        const sourceConsumer = new EventConsumer(sourceConsumerRaw, {
+          logger: migrationLogger,
           onCatchUp,
-        );
+          catchUpOptions,
+        });
         const destinationProducer = stack.use(
           await destinationTopic.producer(),
         );

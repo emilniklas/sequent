@@ -1,5 +1,6 @@
 import { Casing } from "./Casing.js";
 import { ConsumerGroup } from "./Consumer.js";
+import { CatchUpOptions } from "./EventConsumer.js";
 import { EventType, Event } from "./EventType.js";
 import { Logger } from "./Logger.js";
 import { TopicFactory } from "./TopicFactory.js";
@@ -55,7 +56,12 @@ export class ReadModel<TModel, TClient extends object> {
     {
       signal,
       logger = Logger.DEFAULT,
-    }: { signal?: AbortSignal; logger?: Logger } = {},
+      catchUpOptions,
+    }: {
+      signal?: AbortSignal;
+      logger?: Logger;
+      catchUpOptions?: Partial<CatchUpOptions>;
+    } = {},
   ): Promise<TClient> {
     const data = this.#ingestors
       .map(
@@ -99,6 +105,7 @@ export class ReadModel<TModel, TClient extends object> {
           const consumer = await eventType.consumer(topicFactory, group, {
             onCatchUp,
             logger: ingestionLogger,
+            catchUpOptions,
           });
 
           ingestionLogger.info("Ingesting events");

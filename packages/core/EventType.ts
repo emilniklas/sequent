@@ -1,5 +1,5 @@
 import { Consumer, ConsumerGroup } from "./Consumer.js";
-import { EventConsumer } from "./EventConsumer.js";
+import { CatchUpOptions, EventConsumer } from "./EventConsumer.js";
 import { EventProducer } from "./EventProducer.js";
 import { Logger } from "./Logger.js";
 import { Migrator } from "./Migrator.js";
@@ -73,12 +73,23 @@ export class EventType<TEvent> {
 
   async producer(
     topicFactory: TopicFactory,
-    { logger = Logger.DEFAULT }: { logger?: Logger } = {},
+    {
+      logger = Logger.DEFAULT,
+      catchUpOptions,
+    }: {
+      logger?: Logger;
+      catchUpOptions?: Partial<CatchUpOptions>;
+    } = {},
   ): Promise<EventProducer<TEvent>> {
     const migratorsLogger = logger.withContext({ package: "@sequent/core" });
 
     const runningMigrations = await Promise.all(
-      this.#migrators.map((m) => m.run(migratorsLogger, topicFactory)),
+      this.#migrators.map((m) =>
+        m.run(topicFactory, {
+          logger: migratorsLogger,
+          catchUpOptions,
+        }),
+      ),
     );
 
     const topic = await this.topic(topicFactory);
@@ -97,14 +108,19 @@ export class EventType<TEvent> {
     {
       onCatchUp = () => {},
       logger = Logger.DEFAULT,
-    }: { onCatchUp?: () => void; logger?: Logger } = {},
+      catchUpOptions,
+    }: {
+      onCatchUp?: () => void;
+      logger?: Logger;
+      catchUpOptions?: Partial<CatchUpOptions>;
+    } = {},
   ): Promise<Consumer<Event<TEvent>>> {
     const topic = await this.topic(topicFactory);
-    return new EventConsumer(
-      logger.withContext({ package: "@sequent/core" }),
-      await topic.consumer(group),
+    return new EventConsumer(await topic.consumer(group), {
       onCatchUp,
-    );
+      logger: logger.withContext({ package: "@sequent/core" }),
+      catchUpOptions,
+    });
   }
 
   addFields<TSpec extends { readonly [field: string]: TypeSpec }>(

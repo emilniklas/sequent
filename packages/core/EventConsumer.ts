@@ -2,16 +2,22 @@ import { Consumer, Envelope } from "./Consumer.js";
 import { Event, RawEvent } from "./EventType.js";
 import { Logger } from "./Logger.js";
 
+export interface CatchUpOptions {
+  readonly progressLogFrequencyMs: number;
+  readonly catchUpDelayMs: number;
+}
+
 export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
-  static readonly #CATCH_UP_DELAY = 5000;
-  static readonly #PROGRESS_LOG_FREQUENCY = 3000;
+  static readonly #DEFAULT_CATCH_UP_DELAY = 1000;
+  static readonly #DEFAULT_PROGRESS_LOG_FREQUENCY = 3000;
   static readonly #NUMBER_FORMAT = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: 1,
   });
 
-  readonly #logger: Logger;
   readonly #inner: Consumer<RawEvent<TEvent>>;
+  readonly #logger: Logger;
   readonly #onCatchUp: () => void;
+  readonly #catchUpOptions: CatchUpOptions;
 
   #caughtUp = false;
   #catchUpDelayTimer?: ReturnType<typeof setTimeout>;
@@ -20,13 +26,24 @@ export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
   #progressCounter = 0;
 
   constructor(
-    logger: Logger,
     inner: Consumer<RawEvent<TEvent>>,
-    onCatchUp: () => void,
+    opts: {
+      logger: Logger;
+      onCatchUp: () => void;
+      catchUpOptions?: Partial<CatchUpOptions>;
+    },
   ) {
-    this.#logger = logger;
     this.#inner = inner;
-    this.#onCatchUp = onCatchUp;
+    this.#logger = opts.logger;
+    this.#onCatchUp = opts.onCatchUp;
+    this.#catchUpOptions = {
+      progressLogFrequencyMs:
+        opts.catchUpOptions?.progressLogFrequencyMs ??
+        EventConsumer.#DEFAULT_PROGRESS_LOG_FREQUENCY,
+      catchUpDelayMs:
+        opts.catchUpOptions?.catchUpDelayMs ??
+        EventConsumer.#DEFAULT_CATCH_UP_DELAY,
+    };
   }
 
   #rescheduleCatchUpDelay() {
@@ -35,7 +52,7 @@ export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
       this.#catchUpDelayTimer = setTimeout(() => {
         this.#logger.debug("Caught up due to halted consumer");
         this.#catchUp();
-      }, EventConsumer.#CATCH_UP_DELAY);
+      }, this.#catchUpOptions.catchUpDelayMs);
     }
   }
 
@@ -47,7 +64,8 @@ export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
 
     this.#logger.debug("Still catching up...", {
       throughput: `${EventConsumer.#NUMBER_FORMAT.format(
-        this.#progressCounter / (EventConsumer.#PROGRESS_LOG_FREQUENCY / 1000),
+        this.#progressCounter /
+          (this.#catchUpOptions.progressLogFrequencyMs / 1000),
       )} events/s`,
     });
 
@@ -68,7 +86,7 @@ export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
     if (this.#logProcessInterval == null && !this.#caughtUp) {
       this.#logProcessInterval = setInterval(
         this.#logProgress.bind(this),
-        EventConsumer.#PROGRESS_LOG_FREQUENCY,
+        this.#catchUpOptions.progressLogFrequencyMs,
       );
     }
 
@@ -87,7 +105,7 @@ export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
 
     if (
       Date.now() - envelope.event.timestamp <=
-      EventConsumer.#CATCH_UP_DELAY
+      this.#catchUpOptions.catchUpDelayMs
     ) {
       this.#logger.debug("Caught up due to recent event");
       this.#catchUp();
