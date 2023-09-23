@@ -1,4 +1,3 @@
-import { isNativeError } from "node:util/types";
 import { Serializer } from "./Codec.js";
 import { JSONSerializer } from "./JSONCodec.js";
 import { write } from "node:fs";
@@ -84,7 +83,7 @@ export class Logger<TFormat = any> {
   }
 
   logExact(log: Log) {
-    if (Log.LEVELS[log.severity] >= this.#minSeverity) {
+    if (Log.LEVELS[log.severity] <= this.#minSeverity) {
       this.#sink.log(this.#formatter.format(log));
     }
   }
@@ -101,23 +100,32 @@ export class Logger<TFormat = any> {
     this.log(Log.Severity.Warning, message, context);
   }
 
-  #logError(severity: Log.Severity, message: string | Error, context?: object) {
-    if (isNativeError(message)) {
+  #logError(severity: Log.Severity, message: unknown, context?: object) {
+    if (
+      message &&
+      typeof message === "object" &&
+      "message" in message &&
+      typeof message.message === "string" &&
+      "stack" in message &&
+      typeof message.stack === "string"
+    ) {
       const errorContext = {
         ...context,
         stack: message.stack,
       };
       this.log(severity, message.message, errorContext);
-    } else {
+    } else if (typeof message === "string") {
       this.log(severity, message, context);
+    } else {
+      this.log(severity, JSON.stringify(message), context);
     }
   }
 
-  error(message: string | Error, context?: object) {
+  error(message: unknown, context?: object) {
     this.#logError(Log.Severity.Error, message, context);
   }
 
-  fatal(message: string | Error, context?: object) {
+  fatal(message: unknown, context?: object) {
     this.#logError(Log.Severity.Fatal, message, context);
   }
 }
