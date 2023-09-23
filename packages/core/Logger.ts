@@ -1,15 +1,21 @@
+import chalk, { ChalkInstance } from "chalk";
 import { Serializer } from "./Codec.js";
 import { JSONSerializer } from "./JSONCodec.js";
 import { write } from "node:fs";
-import { inspect } from "node:util";
 
 export class Logger<TFormat = any> {
   readonly #formatter: Log.Formatter<TFormat>;
   readonly #sink: Log.Sink<TFormat>;
+  readonly #context: object;
 
-  constructor(formatter: Log.Formatter<TFormat>, sink: Log.Sink<TFormat>) {
+  constructor(
+    formatter: Log.Formatter<TFormat>,
+    sink: Log.Sink<TFormat>,
+    context?: object,
+  ) {
     this.#formatter = formatter;
     this.#sink = sink;
+    this.#context = context ?? {};
 
     switch (process.env.LOG_LEVEL?.toLowerCase()) {
       case "none":
@@ -73,6 +79,15 @@ export class Logger<TFormat = any> {
     return Log.LEVELS[this.#minSeverity];
   }
 
+  withContext(context: object): Logger {
+    const logger = new Logger(this.#formatter, this.#sink, {
+      ...this.#context,
+      ...context,
+    });
+    logger.#minSeverity = this.#minSeverity;
+    return logger;
+  }
+
   log(severity: Log.Severity, message: string, context: object = {}) {
     this.logExact({
       severity,
@@ -84,7 +99,15 @@ export class Logger<TFormat = any> {
 
   logExact(log: Log) {
     if (Log.LEVELS[log.severity] <= this.#minSeverity) {
-      this.#sink.log(this.#formatter.format(log));
+      this.#sink.log(
+        this.#formatter.format({
+          ...log,
+          context: {
+            ...this.#context,
+            ...log.context,
+          },
+        }),
+      );
     }
   }
 
@@ -167,11 +190,65 @@ export namespace Log.Formatter {
   export class Pretty implements Log.Formatter<string> {
     format(log: Log): string {
       return [
-        log.severity,
-        log.timestamp.toLocaleString(),
-        log.message,
-        inspect(log.context),
+        this.#severityBadge(log.severity)(` ${log.severity} `),
+        chalk.gray(log.timestamp.toLocaleTimeString()),
+        this.#severityMessage(log.severity)(log.message),
+        this.#formatContext(log.context).join(" "),
       ].join(" ");
+    }
+
+    #formatContext(context: unknown, path: (string | symbol)[] = []): string[] {
+      if (context == null || typeof context !== "object") {
+        const value =
+          typeof context === "string" ? context : JSON.stringify(context);
+
+        return [chalk.gray(chalk.underline(path.join(".")) + ": " + value)];
+      }
+
+      return Reflect.ownKeys(context).flatMap((key) =>
+        this.#formatContext(context[key as keyof typeof context], [
+          ...path,
+          key,
+        ]),
+      );
+    }
+
+    #severityBadge(severity: Log.Severity): ChalkInstance {
+      switch (severity) {
+        case Severity.Debug:
+          return chalk.bgGray.white;
+
+        case Severity.Fatal:
+          return chalk.bgRed.redBright;
+
+        case Severity.Error:
+          return chalk.bgRed.white;
+
+        case Severity.Warning:
+          return chalk.bgYellowBright.black;
+
+        case Severity.Info:
+          return chalk.bgBlueBright.black;
+      }
+    }
+
+    #severityMessage(severity: Log.Severity): ChalkInstance {
+      switch (severity) {
+        case Severity.Debug:
+          return chalk.gray;
+
+        case Severity.Fatal:
+          return chalk.red;
+
+        case Severity.Error:
+          return chalk.redBright;
+
+        case Severity.Warning:
+          return chalk.yellowBright;
+
+        case Severity.Info:
+          return chalk.blueBright;
+      }
     }
   }
 

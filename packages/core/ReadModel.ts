@@ -1,6 +1,7 @@
 import { Casing } from "./Casing.js";
 import { ConsumerGroup } from "./Consumer.js";
 import { EventType, Event } from "./EventType.js";
+import { Logger } from "./Logger.js";
 import { TopicFactory } from "./TopicFactory.js";
 
 export interface ReadModelClientFactory<TClient> {
@@ -51,7 +52,10 @@ export class ReadModel<TModel, TClient extends object> {
   async start(
     topicFactory: TopicFactory,
     clientFactory: ReadModelClientFactory<TClient>,
-    signal?: AbortSignal,
+    {
+      signal,
+      logger = Logger.DEFAULT,
+    }: { signal?: AbortSignal; logger?: Logger } = {},
   ): Promise<TClient> {
     const data = this.#ingestors
       .map(
@@ -79,15 +83,26 @@ export class ReadModel<TModel, TClient extends object> {
 
     await Promise.all(
       this.#ingestors.map(async ({ eventType, ingestor }) => {
-        const topic = await topicFactory.make<Event<any>>(
-          await eventType.topicName(),
-        );
-        const consumer = stack.use(
-          await topic.consumer(
-            ConsumerGroup.join(`${namespace}-${topic.name}`),
-          ),
-        );
-        (async () => {
+        const topicName = await eventType.topicName();
+
+        const group = ConsumerGroup.join(`${namespace}-${topicName}`);
+
+        const ingestionLogger = logger.withContext({
+          package: "@sequent/core",
+          eventType: eventType.name,
+          topic: topicName,
+          readModel: this.#name,
+          namespace,
+        });
+
+        await new Promise<void>(async (onCatchUp) => {
+          const consumer = await eventType.consumer(topicFactory, group, {
+            onCatchUp,
+            logger: ingestionLogger,
+          });
+
+          ingestionLogger.info("Ingesting events");
+
           while (!stack.disposed) {
             const envelope = await consumer.consume({
               signal,
@@ -98,7 +113,9 @@ export class ReadModel<TModel, TClient extends object> {
             await ingestor(envelope.event, client);
             await envelope[Symbol.asyncDispose]();
           }
-        })();
+        });
+
+        ingestionLogger.info("Ingestor caught up");
       }),
     );
 

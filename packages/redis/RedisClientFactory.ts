@@ -43,6 +43,7 @@ export class RedisClientFactory
 }
 
 export interface RedisClient<TModel> {
+  readonly namespace: string;
   get(key: RedisKey): Promise<TModel | undefined>;
   set(key: RedisKey, value: TModel): Promise<void>;
   exists(key: RedisKey): Promise<boolean>;
@@ -58,7 +59,7 @@ export class PrefixNamespacedRedisClient<TModel>
 {
   readonly #client: Redis;
   readonly #codec: Codec<TModel>;
-  readonly #namespace: string;
+  readonly namespace: string;
 
   constructor(opts: {
     client: Redis;
@@ -67,14 +68,11 @@ export class PrefixNamespacedRedisClient<TModel>
   }) {
     this.#client = opts.client;
     this.#codec = opts.codec;
-    this.#namespace = opts.namespace;
+    this.namespace = opts.namespace;
   }
 
   #key(key: RedisKey): Buffer {
-    return Buffer.concat([
-      Buffer.from(this.#namespace + ":"),
-      Buffer.from(key),
-    ]);
+    return Buffer.concat([Buffer.from(this.namespace + ":"), Buffer.from(key)]);
   }
 
   async get(key: RedisKey): Promise<TModel | undefined> {
@@ -101,7 +99,7 @@ export class PrefixNamespacedRedisClient<TModel>
 export class HashNamespacedRedisClient<TModel> implements RedisClient<TModel> {
   readonly #client: Redis;
   readonly #codec: Codec<TModel>;
-  readonly #namespace: string;
+  readonly namespace: string;
 
   constructor(opts: {
     client: Redis;
@@ -110,11 +108,11 @@ export class HashNamespacedRedisClient<TModel> implements RedisClient<TModel> {
   }) {
     this.#client = opts.client;
     this.#codec = opts.codec;
-    this.#namespace = opts.namespace;
+    this.namespace = opts.namespace;
   }
 
   async get(key: RedisKey): Promise<TModel | undefined> {
-    const value = await this.#client.hgetBuffer(this.#namespace, key);
+    const value = await this.#client.hgetBuffer(this.namespace, key);
     if (value == null) {
       return undefined;
     }
@@ -123,12 +121,12 @@ export class HashNamespacedRedisClient<TModel> implements RedisClient<TModel> {
   }
 
   async exists(key: RedisKey): Promise<boolean> {
-    return (await this.#client.hexists(this.#namespace, key)) === 1;
+    return (await this.#client.hexists(this.namespace, key)) === 1;
   }
 
   async set(key: RedisKey, value: TModel) {
     await this.#client.hset(
-      this.#namespace,
+      this.namespace,
       key,
       Buffer.from(this.#codec.serialize(value)),
     );

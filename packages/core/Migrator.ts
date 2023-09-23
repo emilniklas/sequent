@@ -1,13 +1,23 @@
 import { ConsumerGroup, StartFrom } from "./Consumer.js";
-import { EventType } from "./EventType.js";
+import { EventConsumer, EventType, RawEvent } from "./EventType.js";
+import { Logger } from "./Logger.js";
+import { Topic } from "./Topic.js";
 import { TopicFactory } from "./TopicFactory.js";
+
+export interface RunningMigration<TSourceEvent, TDestinationEvent>
+  extends AsyncDisposable {
+  readonly sourceEventType: EventType<TSourceEvent>;
+  readonly sourceTopic: Topic<RawEvent<TSourceEvent>>;
+  readonly destinationEventType: EventType<TDestinationEvent>;
+  readonly destinationTopic: Topic<RawEvent<TDestinationEvent>>;
+}
 
 export class Migrator<TSourceEvent, TDestinationEvent> {
   readonly #source: EventType<TSourceEvent>;
   readonly #destination: () => EventType<TDestinationEvent>;
   readonly #migration: (source: TSourceEvent) => TDestinationEvent;
 
-  #running?: Promise<void>;
+  #running?: Promise<RunningMigration<TSourceEvent, TDestinationEvent>>;
 
   constructor(opts: {
     source: EventType<TSourceEvent>;
@@ -19,17 +29,27 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
     this.#migration = opts.migration;
   }
 
-  run(topicFactory: TopicFactory, signal?: AbortSignal): Promise<void> {
+  run(
+    logger: Logger,
+    topicFactory: TopicFactory,
+  ): Promise<RunningMigration<TSourceEvent, TDestinationEvent>> {
     if (this.#running) {
       return this.#running;
     }
 
     return (this.#running = Promise.resolve().then(async () => {
+      const controller = new AbortController();
+
       const sourceTopic = await this.#source.topic(topicFactory);
       const destinationTopic = await this.#destination().topic(topicFactory);
 
+      const migrationLogger = logger.withContext({
+        sourceTopic: sourceTopic.name,
+        destinationTopic: destinationTopic.name,
+      });
+
       const stack = new AsyncDisposableStack();
-      const sourceConsumer = stack.use(
+      const sourceConsumerRaw = stack.use(
         await sourceTopic.consumer(
           ConsumerGroup.join(
             `${sourceTopic.name}-${destinationTopic.name}`,
@@ -38,50 +58,29 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
         ),
       );
 
-      const destinationProducer = stack.use(await destinationTopic.producer());
+      await new Promise<void>(async (onCatchUp) => {
+        const sourceConsumer = new EventConsumer(
+          migrationLogger,
+          sourceConsumerRaw,
+          onCatchUp,
+        );
+        const destinationProducer = stack.use(
+          await destinationTopic.producer(),
+        );
 
-      return new Promise<void>(async (resolve) => {
-        let caughtUp = false;
-        const CATCH_UP_DELAY = 5000;
+        migrationLogger.info("Migrating topic");
 
-        const onCatchUp = () => {
-          if (!caughtUp) {
-            caughtUp = true;
-            resolve();
-          }
-        };
-
-        let catchUpDelayTimer: ReturnType<typeof setTimeout> | undefined;
-        const rescheduleCatchUpDelay = () => {
-          clearTimeout(catchUpDelayTimer);
-          if (!caughtUp) {
-            catchUpDelayTimer = setTimeout(onCatchUp, CATCH_UP_DELAY);
-          }
-        };
-
-        signal?.addEventListener("abort", async () => {
-          await stack.disposeAsync();
-          clearTimeout(catchUpDelayTimer);
-          resolve();
-        });
-
-        rescheduleCatchUpDelay();
-
-        while (!signal?.aborted) {
-          const envelope = await sourceConsumer.consume({ signal });
+        while (!controller.signal.aborted) {
+          const envelope = await sourceConsumer.consume({
+            signal: controller.signal,
+          });
           if (envelope == null) {
             continue;
           }
           try {
-            rescheduleCatchUpDelay();
-
-            if (Date.now() - envelope.event.timestamp <= CATCH_UP_DELAY) {
-              onCatchUp();
-            }
-
             const newMessage = this.#migration(envelope.event.message);
             await destinationProducer.produce({
-              timestamp: envelope.event.timestamp,
+              timestamp: envelope.event.timestamp.getTime(),
               message: newMessage,
             });
           } catch (e) {
@@ -92,6 +91,19 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
           }
         }
       });
+
+      migrationLogger.info("Migrator caught up");
+
+      return {
+        sourceEventType: this.#source,
+        sourceTopic,
+        destinationEventType: this.#destination(),
+        destinationTopic,
+        async [Symbol.asyncDispose]() {
+          controller.abort();
+          await stack.disposeAsync();
+        },
+      };
     }));
   }
 }

@@ -32,7 +32,9 @@ export function logAdapter(logger: sequent.Logger): {
           severity: kToO[level] ?? sequent.Log.Severity.Debug,
           timestamp: new Date(log.timestamp),
           message: `${namespace}: ${log.message}`,
-          context: {},
+          context: {
+            package: "kafkajs",
+          },
         });
       },
   };

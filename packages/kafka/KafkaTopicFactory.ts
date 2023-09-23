@@ -7,6 +7,7 @@ export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
   readonly #client: kafka.Kafka;
   readonly #disposableStack = new AsyncDisposableStack();
   #admin?: kafka.Admin;
+  #assertedTopics = new Set<string>();
 
   constructor(client: kafka.Kafka, opts: { codec?: Codec<any> } = {}) {
     this.#client = client;
@@ -22,15 +23,18 @@ export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
       });
     }
 
-    await this.#admin.createTopics({
-      topics: [
-        {
-          topic: name,
-          numPartitions: 1,
-          replicationFactor: 1,
-        },
-      ],
-    });
+    if (!this.#assertedTopics.has(name)) {
+      this.#assertedTopics.add(name);
+      await this.#admin.createTopics({
+        topics: [
+          {
+            topic: name,
+            numPartitions: 1,
+            replicationFactor: 1,
+          },
+        ],
+      });
+    }
 
     return this.#disposableStack.use(
       new KafkaTopic<TEvent>(this.#client, this.#codec, name),
