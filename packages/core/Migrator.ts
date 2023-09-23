@@ -1,5 +1,6 @@
 import { ConsumerGroup, StartFrom } from "./Consumer.js";
-import { EventConsumer, EventType, RawEvent } from "./EventType.js";
+import { EventConsumer } from "./EventConsumer.js";
+import { EventType, RawEvent } from "./EventType.js";
 import { Logger } from "./Logger.js";
 import { Topic } from "./Topic.js";
 import { TopicFactory } from "./TopicFactory.js";

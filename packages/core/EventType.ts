@@ -1,10 +1,21 @@
-import { Consumer, ConsumerGroup, Envelope } from "./Consumer.js";
+import { Consumer, ConsumerGroup } from "./Consumer.js";
+import { EventConsumer } from "./EventConsumer.js";
+import { EventProducer } from "./EventProducer.js";
 import { Logger } from "./Logger.js";
-import { Migrator, RunningMigration } from "./Migrator.js";
-import { Producer } from "./Producer.js";
+import { Migrator } from "./Migrator.js";
 import { Topic } from "./Topic.js";
 import { TopicFactory } from "./TopicFactory.js";
 import { TypeOf, TypeSpec } from "./TypeSpec.js";
+
+export interface RawEvent<TMessage> {
+  readonly timestamp: number;
+  readonly message: TMessage;
+}
+
+export interface Event<TMessage> {
+  readonly timestamp: Date;
+  readonly message: TMessage;
+}
 
 export namespace EventType {
   export type TypeOf<TEventType> = TEventType extends EventType<infer R>
@@ -156,156 +167,4 @@ export type NewFields<
 export interface NewField<TEvent, TSpec extends TypeSpec> {
   type: TSpec;
   migrate: (event: TEvent) => TypeOf<TSpec>;
-}
-
-export class EventProducer<TEvent> implements Producer<TEvent> {
-  readonly #spec: TypeSpec;
-  readonly #inner: Producer<RawEvent<TEvent>>;
-  readonly #topic: Topic<RawEvent<TEvent>>;
-  readonly runningMigrations: RunningMigration<any, any>[];
-
-  constructor(
-    spec: TypeSpec,
-    inner: Producer<RawEvent<TEvent>>,
-    topic: Topic<RawEvent<TEvent>>,
-    runningMigrations: RunningMigration<any, any>[],
-  ) {
-    this.#spec = spec;
-    this.#inner = inner;
-    this.#topic = topic;
-    this.runningMigrations = runningMigrations;
-  }
-
-  toString() {
-    return `EventProducer<${this.runningMigrations.map(
-      (m) => m.sourceTopic.name + " -> ",
-    )}${this.#topic.name}> ${this.#spec}`;
-  }
-
-  async produce(event: TEvent) {
-    this.#spec.assert(event);
-    await this.#inner.produce({
-      timestamp: Date.now(),
-      message: event,
-    });
-  }
-
-  async [Symbol.asyncDispose]() {
-    await Promise.all([
-      this.#inner[Symbol.asyncDispose](),
-      ...this.runningMigrations.map((m) => m[Symbol.asyncDispose]()),
-    ]);
-  }
-}
-
-export class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
-  static readonly #CATCH_UP_DELAY = 5000;
-  static readonly #PROGRESS_LOG_FREQUENCY = 3000;
-  static readonly #NUMBER_FORMAT = new Intl.NumberFormat(undefined, {
-    maximumFractionDigits: 1,
-  });
-
-  readonly #logger: Logger;
-  readonly #inner: Consumer<RawEvent<TEvent>>;
-  readonly #onCatchUp: () => void;
-
-  #caughtUp = false;
-  #catchUpDelayTimer?: ReturnType<typeof setTimeout>;
-  #logProcessInterval?: ReturnType<typeof setInterval>;
-
-  #progressCounter = 0;
-
-  constructor(
-    logger: Logger,
-    inner: Consumer<RawEvent<TEvent>>,
-    onCatchUp: () => void,
-  ) {
-    this.#logger = logger;
-    this.#inner = inner;
-    this.#onCatchUp = onCatchUp;
-  }
-
-  #rescheduleCatchUpDelay() {
-    clearTimeout(this.#catchUpDelayTimer);
-    if (!this.#caughtUp) {
-      this.#catchUpDelayTimer = setTimeout(() => {
-        this.#logger.debug("Caught up due to halted consumer");
-        this.#catchUp();
-      }, EventConsumer.#CATCH_UP_DELAY);
-    }
-  }
-
-  #logProgress() {
-    if (this.#caughtUp) {
-      clearInterval(this.#logProcessInterval);
-      return;
-    }
-
-    this.#logger.debug("Still catching up...", {
-      throughput: `${EventConsumer.#NUMBER_FORMAT.format(
-        this.#progressCounter / (EventConsumer.#PROGRESS_LOG_FREQUENCY / 1000),
-      )} events/s`,
-    });
-
-    this.#progressCounter = 0;
-  }
-
-  #catchUp() {
-    clearTimeout(this.#catchUpDelayTimer);
-    if (!this.#caughtUp) {
-      this.#caughtUp = true;
-      this.#onCatchUp();
-    }
-  }
-
-  async consume(opts?: {
-    signal?: AbortSignal;
-  }): Promise<Envelope<Event<TEvent>> | undefined> {
-    if (this.#logProcessInterval == null && !this.#caughtUp) {
-      this.#logProcessInterval = setInterval(
-        this.#logProgress.bind(this),
-        EventConsumer.#PROGRESS_LOG_FREQUENCY,
-      );
-    }
-
-    this.#rescheduleCatchUpDelay();
-
-    const onAbort = this.#catchUp.bind(this);
-    opts?.signal?.addEventListener("abort", onAbort);
-    const envelope = await this.#inner.consume(opts);
-    opts?.signal?.removeEventListener("abort", onAbort);
-
-    if (envelope == null) {
-      return undefined;
-    }
-
-    this.#progressCounter++;
-
-    if (
-      Date.now() - envelope.event.timestamp <=
-      EventConsumer.#CATCH_UP_DELAY
-    ) {
-      this.#logger.debug("Caught up due to recent event");
-      this.#catchUp();
-    }
-
-    return envelope.map((e) => ({
-      timestamp: new Date(e.timestamp),
-      message: e.message,
-    }));
-  }
-
-  async [Symbol.asyncDispose]() {
-    await this.#inner[Symbol.asyncDispose]();
-  }
-}
-
-export interface RawEvent<TMessage> {
-  readonly timestamp: number;
-  readonly message: TMessage;
-}
-
-export interface Event<TMessage> {
-  readonly timestamp: Date;
-  readonly message: TMessage;
 }

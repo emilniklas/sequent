@@ -3,6 +3,8 @@ import "disposablestack/auto";
 export * from "./Casing.js";
 export * from "./Codec.js";
 export * from "./Consumer.js";
+export * from "./EventConsumer.js";
+export * from "./EventProducer.js";
 export * from "./EventType.js";
 export * from "./JSONCodec.js";
 export * from "./Logger.js";
