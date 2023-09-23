@@ -75,10 +75,7 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
           try {
             rescheduleCatchUpDelay();
 
-            if (
-              Date.now() - envelope.event.timestamp.getTime() <=
-              CATCH_UP_DELAY
-            ) {
+            if (Date.now() - envelope.event.timestamp <= CATCH_UP_DELAY) {
               onCatchUp();
             }
 

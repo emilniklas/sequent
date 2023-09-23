@@ -28,6 +28,10 @@ export class Envelope<TEvent> implements AsyncDisposable {
       await this.#acker.ack();
     }
   }
+
+  map<TEvent2>(f: (event: TEvent) => TEvent2): Envelope<TEvent2> {
+    return new Envelope(f(this.#event), this.#acker);
+  }
 }
 
 export interface Acker {

@@ -1,4 +1,4 @@
-import { Consumer, ConsumerGroup } from "./Consumer.js";
+import { Consumer, ConsumerGroup, Envelope } from "./Consumer.js";
 import { Migrator } from "./Migrator.js";
 import { Producer } from "./Producer.js";
 import { Topic } from "./Topic.js";
@@ -55,8 +55,8 @@ export class EventType<TEvent> {
     return `${this.#name}-${hashDigest}`;
   }
 
-  async topic(topicFactory: TopicFactory): Promise<Topic<Event<TEvent>>> {
-    return topicFactory.make<Event<TEvent>>(await this.topicName());
+  async topic(topicFactory: TopicFactory): Promise<Topic<RawEvent<TEvent>>> {
+    return topicFactory.make<RawEvent<TEvent>>(await this.topicName());
   }
 
   async producer(topicFactory: TopicFactory): Promise<Producer<TEvent>> {
@@ -80,7 +80,7 @@ export class EventType<TEvent> {
     group: ConsumerGroup,
   ): Promise<Consumer<Event<TEvent>>> {
     const topic = await this.topic(topicFactory);
-    return topic.consumer(group);
+    return new EventConsumer(await topic.consumer(group));
   }
 
   addFields<TSpec extends { readonly [field: string]: TypeSpec }>(
@@ -146,12 +146,12 @@ export interface NewField<TEvent, TSpec extends TypeSpec> {
 }
 
 class EventProducer<TEvent> implements Producer<TEvent> {
-  readonly #inner: Producer<Event<TEvent>>;
+  readonly #inner: Producer<RawEvent<TEvent>>;
   readonly #spec: TypeSpec;
   readonly #disposable: AsyncDisposable;
 
   constructor(
-    inner: Producer<Event<TEvent>>,
+    inner: Producer<RawEvent<TEvent>>,
     spec: TypeSpec,
     disposable: AsyncDisposable,
   ) {
@@ -163,7 +163,7 @@ class EventProducer<TEvent> implements Producer<TEvent> {
   async produce(event: TEvent) {
     this.#spec.assert(event);
     await this.#inner.produce({
-      timestamp: new Date(),
+      timestamp: Date.now(),
       message: event,
     });
   }
@@ -171,6 +171,33 @@ class EventProducer<TEvent> implements Producer<TEvent> {
   async [Symbol.asyncDispose]() {
     await this.#disposable[Symbol.asyncDispose]();
   }
+}
+
+class EventConsumer<TEvent> implements Consumer<Event<TEvent>> {
+  readonly #inner: Consumer<RawEvent<TEvent>>;
+
+  constructor(inner: Consumer<RawEvent<TEvent>>) {
+    this.#inner = inner;
+  }
+
+  async consume(opts?: {
+    signal?: AbortSignal;
+  }): Promise<Envelope<Event<TEvent>> | undefined> {
+    const envelope = await this.#inner.consume(opts);
+    return envelope?.map((e) => ({
+      timestamp: new Date(e.timestamp),
+      message: e.message,
+    }));
+  }
+
+  async [Symbol.asyncDispose]() {
+    await this.#inner[Symbol.asyncDispose]();
+  }
+}
+
+interface RawEvent<TMessage> {
+  readonly timestamp: number;
+  readonly message: TMessage;
 }
 
 export interface Event<TMessage> {
