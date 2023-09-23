@@ -190,7 +190,7 @@ export namespace Log.Formatter {
   export class Pretty implements Log.Formatter<string> {
     format(log: Log): string {
       return [
-        this.#severityBadge(log.severity)(` ${log.severity} `),
+        this.#severityBadge(log.severity)(` ${log.severity.slice(0, 4)} `),
         chalk.gray(log.timestamp.toLocaleTimeString()),
         this.#severityMessage(log.severity)(log.message),
         this.#formatContext(log.context).join(" "),
