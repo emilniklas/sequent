@@ -31,7 +31,7 @@ export function logAdapter(logger: sequent.Logger): {
         logger.logExact({
           severity: kToO[level] ?? sequent.Log.Severity.Debug,
           timestamp: new Date(log.timestamp),
-          message: `${namespace}: ${log.message}`,
+          message: namespace ? `${namespace}: ${log.message}` : log.message,
           context: {
             package: "kafkajs",
           },
