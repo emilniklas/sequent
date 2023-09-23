@@ -12,3 +12,4 @@ export * from "./Producer.js";
 export * from "./ReadModel.js";
 export * from "./Topic.js";
 export * from "./TopicFactory.js";
+export * from "./V8Codec.js";
