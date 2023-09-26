@@ -1,0 +1,21 @@
+{
+  "name": "@sequent/elasticsearch",
+  "type": "module",
+  "peerDependencies": {
+    "@elastic/elasticsearch": "^8.10.0",
+    "@sequent/core": "*"
+  },
+  "devDependencies": {
+    "@elastic/elasticsearch": "^8.10.0",
+    "@sequent/core": "file:../core",
+    "bun-types": "^1.0.2",
+    "typescript": "^5.2.2"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit"
+  }
+}

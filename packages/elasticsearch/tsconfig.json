@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "dist",
+    "target": "esnext",
+    "module": "nodenext",
+    "declaration": true,
+    "declarationMap": true,
+    "skipLibCheck": true,
+    "types": [
+      "bun-types"
+    ]
+  }
+}
