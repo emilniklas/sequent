@@ -8,6 +8,7 @@ import { TopicFactory } from "./TopicFactory.js";
 export interface ReadModelClientFactory<TClient> {
   readonly namingConvention: Casing;
   make(namespace: string): Promise<TClient>;
+  onCatchUp?(client: TClient): void | Promise<void>;
 }
 
 export type Ingestor<TEvent, TClient> = (
@@ -21,20 +22,40 @@ interface RegisteredIngestor<TEvent, TClient> {
   readonly nonce: number;
 }
 
+export type Initializer<TClient> = (client: TClient) => void | Promise<void>;
+
+interface RegisteredInitializer<TClient> {
+  readonly initializer: Initializer<TClient>;
+  readonly nonce: number;
+}
+
 export class ReadModel<TClient extends object> {
   readonly #name: string;
   readonly #ingestors: RegisteredIngestor<any, TClient>[];
+  readonly #initializers: RegisteredInitializer<TClient>[];
 
   private constructor(
     name: string,
     ingestors: RegisteredIngestor<any, TClient>[],
+    initializers: RegisteredInitializer<TClient>[],
   ) {
     this.#name = name;
     this.#ingestors = ingestors;
+    this.#initializers = initializers;
   }
 
   static new<TClient extends object>(name: string): ReadModel<TClient> {
-    return new ReadModel(name, []);
+    return new ReadModel(name, [], []);
+  }
+
+  onInit(
+    initializer: Initializer<TClient>,
+    { nonce = 0 }: { nonce?: number } = {},
+  ) {
+    return new ReadModel(this.#name, this.#ingestors, [
+      ...this.#initializers,
+      { initializer, nonce },
+    ]);
   }
 
   on<TEvent>(
@@ -42,10 +63,11 @@ export class ReadModel<TClient extends object> {
     ingestor: Ingestor<TEvent, TClient>,
     { nonce = 0 }: { nonce?: number } = {},
   ): ReadModel<TClient> {
-    return new ReadModel(this.#name, [
-      ...this.#ingestors,
-      { eventType, ingestor, nonce },
-    ]);
+    return new ReadModel(
+      this.#name,
+      [...this.#ingestors, { eventType, ingestor, nonce }],
+      this.#initializers,
+    );
   }
 
   async start(
@@ -61,10 +83,15 @@ export class ReadModel<TClient extends object> {
       catchUpOptions?: Partial<CatchUpOptions>;
     } = {},
   ): Promise<TClient> {
-    const data = this.#ingestors
+    const data = this.#initializers
       .map(
-        ({ eventType, nonce, ingestor }) =>
-          eventType.toString() + nonce.toString() + ingestor.toString(),
+        ({ initializer, nonce }) => initializer.toString() + nonce.toString(),
+      )
+      .concat(
+        this.#ingestors.map(
+          ({ eventType, nonce, ingestor }) =>
+            eventType.toString() + nonce.toString() + ingestor.toString(),
+        ),
       )
       .join();
 
@@ -87,6 +114,10 @@ export class ReadModel<TClient extends object> {
 
     if (Symbol.dispose in client || Symbol.asyncDispose in client) {
       stack.use(client as Disposable | AsyncDisposable);
+    }
+
+    for (const initializer of this.#initializers) {
+      await initializer.initializer(client);
     }
 
     const topicNames = await Promise.all(
@@ -138,6 +169,8 @@ export class ReadModel<TClient extends object> {
     })();
 
     await Promise.all(catchUpPromises);
+
+    await clientFactory.onCatchUp?.(client);
 
     ingestionLogger.info("Ingestor caught up");
 
