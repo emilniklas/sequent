@@ -1,5 +1,5 @@
 import { Casing } from "./Casing.js";
-import { ConsumerGroup } from "./Consumer.js";
+import { Consumer, ConsumerGroup, Envelope } from "./Consumer.js";
 import { CatchUpOptions } from "./EventConsumer.js";
 import { EventType, Event } from "./EventType.js";
 import { Logger } from "./Logger.js";
@@ -85,49 +85,177 @@ export class ReadModel<TClient extends object> {
     const stack = new AsyncDisposableStack();
     signal?.addEventListener("abort", () => stack.disposeAsync());
 
-    await Promise.all(
-      this.#ingestors.map(async ({ eventType, ingestor }) => {
-        const topicName = await eventType.topicName();
+    if (Symbol.dispose in client || Symbol.asyncDispose in client) {
+      stack.use(client as Disposable | AsyncDisposable);
+    }
 
-        const group = ConsumerGroup.join(`${namespace}-${topicName}`);
+    const topicNames = await Promise.all(
+      this.#ingestors.map((i) => i.eventType.topicName()),
+    );
 
-        const ingestionLogger = logger.withContext({
-          package: "@sequent/core",
-          eventType: eventType.name,
-          topic: topicName,
-          readModel: this.#name,
-          namespace,
-        });
+    const catchUpPromises: Promise<void>[] = [];
 
-        await new Promise<void>(async (onCatchUp) => {
+    const ingestionLogger = logger.withContext({
+      package: "@sequent/core",
+      eventTypes: this.#ingestors.map((i) => i.eventType.name),
+      topics: topicNames,
+      readModel: this.#name,
+      namespace,
+    });
+
+    const ingestor = new MultiConsumerIngestor(
+      await Promise.all(
+        this.#ingestors.map(async ({ eventType, ingestor }) => {
+          const topicName = await eventType.topicName();
+
+          const group = ConsumerGroup.join(`${namespace}-${topicName}`);
+
+          let onCatchUp!: () => void;
+          catchUpPromises.push(
+            new Promise<void>((r) => {
+              onCatchUp = r;
+            }),
+          );
+
           const consumer = await eventType.consumer(topicFactory, group, {
             onCatchUp,
             logger: ingestionLogger,
             catchUpOptions,
           });
 
-          ingestionLogger.info("Ingesting events");
-
-          while (!stack.disposed) {
-            const envelope = await consumer.consume({
-              signal,
-            });
-            if (envelope == null) {
-              continue;
-            }
-            await ingestor(envelope.event, client);
-            await envelope[Symbol.asyncDispose]();
-          }
-        });
-
-        ingestionLogger.info("Ingestor caught up");
-      }),
+          return new ConsumerIngestor(consumer, ingestor, client);
+        }),
+      ),
+      catchUpOptions,
     );
 
-    if (Symbol.dispose in client || Symbol.asyncDispose in client) {
-      stack.use(client as Disposable | AsyncDisposable);
-    }
+    ingestionLogger.info("Ingesting events");
+
+    (async () => {
+      while (!stack.disposed) {
+        await ingestor.next(signal);
+      }
+    })();
+
+    await Promise.all(catchUpPromises);
+
+    ingestionLogger.info("Ingestor caught up");
 
     return client;
+  }
+}
+
+class MultiConsumerIngestor<TClient> {
+  static readonly #DEFAULT_TIMEOUT_MS = 300;
+
+  readonly #consumerIngestors: ConsumerIngestor<any, TClient>[];
+  readonly #timeoutMs: number;
+
+  constructor(
+    consumerIngestors: ConsumerIngestor<any, TClient>[],
+    catchUpOptions?: Partial<CatchUpOptions>,
+  ) {
+    this.#consumerIngestors = consumerIngestors;
+    this.#timeoutMs = MultiConsumerIngestor.#DEFAULT_TIMEOUT_MS;
+
+    if (catchUpOptions?.catchUpDelayMs != null) {
+      this.#timeoutMs = catchUpOptions.catchUpDelayMs * 0.7;
+    }
+  }
+
+  async next(signal?: AbortSignal): Promise<void> {
+    const peekedDates = await Promise.all(
+      this.#consumerIngestors.map((ci) => ci.peek(this.#timeoutMs, signal)),
+    );
+
+    let earliestDate: Date | undefined;
+    let earliestIndex: number | undefined;
+
+    for (let i = 0; i < peekedDates.length; i++) {
+      const date = peekedDates[i];
+
+      if (date == null) {
+        continue;
+      }
+
+      if (earliestDate == null || earliestDate > date) {
+        earliestDate = date;
+        earliestIndex = i;
+      }
+    }
+
+    if (earliestIndex == null) {
+      await Promise.race(
+        this.#consumerIngestors.map((ci) => ci.peek(Infinity, signal)),
+      );
+
+      return this.next(signal);
+    }
+
+    await this.#consumerIngestors[earliestIndex].take(signal);
+  }
+}
+
+class ConsumerIngestor<TEvent, TClient> {
+  readonly #consumer: Consumer<Event<TEvent>>;
+  readonly #ingestor: Ingestor<TEvent, TClient>;
+  readonly #client: TClient;
+  #prefetched?:
+    | Promise<Envelope<Event<TEvent>> | undefined>
+    | Envelope<Event<TEvent>>;
+
+  constructor(
+    consumer: Consumer<Event<TEvent>>,
+    ingestor: Ingestor<TEvent, TClient>,
+    client: TClient,
+  ) {
+    this.#consumer = consumer;
+    this.#ingestor = ingestor;
+    this.#client = client;
+  }
+
+  #prefetch(
+    signal?: AbortSignal,
+  ): Promise<Envelope<Event<TEvent>> | undefined> {
+    if (!this.#prefetched) {
+      this.#prefetched = this.#consumer
+        .consume({ signal })
+        .then((envelope) => {
+          this.#prefetched = envelope;
+          return envelope;
+        })
+        .catch((e) => {
+          this.#prefetched = undefined;
+          throw e;
+        });
+    }
+
+    return Promise.resolve(this.#prefetched);
+  }
+
+  peek(timeoutMs: number, signal?: AbortSignal): Promise<Date | undefined> {
+    return Promise.race([
+      this.#prefetch(signal).then((e) => e?.event.timestamp),
+      new Promise<undefined>((r) => {
+        if (isFinite(timeoutMs)) {
+          setTimeout(r, timeoutMs);
+        }
+      }),
+    ]);
+  }
+
+  async take(signal?: AbortSignal): Promise<void> {
+    const envelope = await this.#prefetch(signal);
+    this.#prefetched = undefined;
+    if (envelope) {
+      try {
+        await this.#ingestor(envelope.event, this.#client);
+      } catch (e) {
+        await envelope.nack();
+        throw e;
+      } finally {
+        await envelope[Symbol.asyncDispose]();
+      }
+    }
   }
 }
