@@ -21,7 +21,7 @@ interface RegisteredIngestor<TEvent, TClient> {
   readonly nonce: number;
 }
 
-export class ReadModel<TModel, TClient extends object> {
+export class ReadModel<TClient extends object> {
   readonly #name: string;
   readonly #ingestors: RegisteredIngestor<any, TClient>[];
 
@@ -33,9 +33,7 @@ export class ReadModel<TModel, TClient extends object> {
     this.#ingestors = ingestors;
   }
 
-  static new<TModel, TClient extends object>(
-    name: string,
-  ): ReadModel<TModel, TClient> {
+  static new<TClient extends object>(name: string): ReadModel<TClient> {
     return new ReadModel(name, []);
   }
 
@@ -43,7 +41,7 @@ export class ReadModel<TModel, TClient extends object> {
     eventType: EventType<TEvent>,
     ingestor: Ingestor<TEvent, TClient>,
     { nonce = 0 }: { nonce?: number } = {},
-  ): ReadModel<TModel, TClient> {
+  ): ReadModel<TClient> {
     return new ReadModel(this.#name, [
       ...this.#ingestors,
       { eventType, ingestor, nonce },

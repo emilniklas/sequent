@@ -117,7 +117,7 @@ interface MongoDBTodo {
   completed: boolean;
 }
 
-const MongoDBTodo = ReadModel.new<MongoDBTodo, Collection<MongoDBTodo>>("Todo");
+const MongoDBTodo = ReadModel.new<Collection<MongoDBTodo>>("Todo");
 ```
 
 Notice how we're using the native `Collection` type from the `mongodb` package.
@@ -132,7 +132,7 @@ we use the fluent API exposed by the `ReadModel`.
 ```typescript
 // ...
 
-const MongoDBTodo = ReadModel.new<MongoDBTodo, Collection<MongoDBTodo>>("Todo")
+const MongoDBTodo = ReadModel.new<Collection<MongoDBTodo>>("Todo")
   .on(TodoRegistered, async (event, col) => {
     await col.insertOne({
       id: event.message.id,

@@ -50,10 +50,8 @@ describe("@sequent/in-memory", () => {
       name: string;
     }
 
-    const rootInMemoryEntity = ReadModel.new<
-      InMemoryEntity,
-      InMemoryDatabase<InMemoryEntity>
-    >("InMemoryEntity");
+    const rootInMemoryEntity =
+      ReadModel.new<InMemoryDatabase<InMemoryEntity>>("InMemoryEntity");
 
     const producer = await EntityCreated.producer(topicFactory);
 
