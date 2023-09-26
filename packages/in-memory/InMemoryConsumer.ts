@@ -22,7 +22,7 @@ export class InMemoryConsumer<TEvent> implements Consumer<TEvent> {
 
     const event = await this.#topic.get(offset.state);
 
-    return new Envelope(event, {
+    return new Envelope(event, null, {
       ack: async () => {
         offset.state++;
         await offset[Symbol.asyncDispose]();

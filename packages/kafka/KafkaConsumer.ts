@@ -77,7 +77,7 @@ export class KafkaConsumer<TEvent> implements Consumer<TEvent> {
 
     const event = this.#deserializer.deserialize(Buffer.from(message.value));
 
-    return new Envelope(event, {
+    return new Envelope(event, message.key, {
       ack: async () => {
         await this.#consumer.commitOffsets([
           {

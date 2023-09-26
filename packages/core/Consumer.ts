@@ -6,16 +6,22 @@ export interface Consumer<TEvent> extends AsyncDisposable {
 
 export class Envelope<TEvent> implements AsyncDisposable {
   readonly #event: TEvent;
+  readonly #key: Uint8Array | null;
   readonly #acker: Acker;
   #nacked = false;
 
-  constructor(event: TEvent, acker: Acker) {
+  constructor(event: TEvent, key: Uint8Array | null, acker: Acker) {
     this.#event = event;
+    this.#key = key;
     this.#acker = acker;
   }
 
   get event(): TEvent {
     return this.#event;
+  }
+
+  get key(): Uint8Array | null {
+    return this.#key;
   }
 
   async nack() {
@@ -30,7 +36,7 @@ export class Envelope<TEvent> implements AsyncDisposable {
   }
 
   map<TEvent2>(f: (event: TEvent) => TEvent2): Envelope<TEvent2> {
-    return new Envelope(f(this.#event), this.#acker);
+    return new Envelope(f(this.#event), this.#key, this.#acker);
   }
 }
 

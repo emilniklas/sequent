@@ -28,12 +28,18 @@ export class EventProducer<TEvent> implements Producer<TEvent> {
     )}${this.#topic.name}> ${this.#spec}`;
   }
 
-  async produce(event: TEvent) {
+  async produce(
+    event: TEvent,
+    key: string | Uint8Array | null = null,
+  ): Promise<void> {
     this.#spec.assert(event);
-    await this.#inner.produce({
-      timestamp: Date.now(),
-      message: event,
-    });
+    await this.#inner.produce(
+      {
+        timestamp: Date.now(),
+        message: event,
+      },
+      key ? Buffer.from(key) : null,
+    );
   }
 
   async [Symbol.asyncDispose]() {

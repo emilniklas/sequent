@@ -1,3 +1,3 @@
 export interface Producer<TEvent> extends AsyncDisposable {
-  produce(event: TEvent): Promise<void>;
+  produce(event: TEvent, key: Uint8Array | null): Promise<void>;
 }

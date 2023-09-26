@@ -86,10 +86,13 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
           }
           try {
             const newMessage = this.#migration(envelope.event.message);
-            await destinationProducer.produce({
-              timestamp: envelope.event.timestamp.getTime(),
-              message: newMessage,
-            });
+            await destinationProducer.produce(
+              {
+                timestamp: envelope.event.timestamp.getTime(),
+                message: newMessage,
+              },
+              envelope.key,
+            );
           } catch (e) {
             await envelope.nack();
             throw e;

@@ -56,7 +56,7 @@ describe("@sequent/in-memory", () => {
     const producer = await topic.producer();
     const consumer = await topic.consumer(ConsumerGroup.anonymous());
 
-    await producer.produce(4);
+    await producer.produce(4, null);
 
     let sum = 0;
     const consuming = (async () => {
@@ -71,7 +71,7 @@ describe("@sequent/in-memory", () => {
       }
     })();
 
-    await producer.produce(6);
+    await producer.produce(6, null);
 
     await consuming;
 

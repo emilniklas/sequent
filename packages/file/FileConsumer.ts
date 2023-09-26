@@ -43,7 +43,7 @@ export class FileConsumer<TEvent> implements Consumer<TEvent> {
     [data, guard] = await this.#pollRead(guard, 8, length);
 
     const event = this.#deserializer.deserialize(data);
-    return new Envelope(event, {
+    return new Envelope(event, null, {
       ack: async () => {
         guard.state += 8 + length;
         await guard[Symbol.asyncDispose]();

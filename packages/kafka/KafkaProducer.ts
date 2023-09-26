@@ -27,12 +27,13 @@ export class KafkaProducer<TEvent> implements Producer<TEvent> {
     return new KafkaProducer(serializer, producer, topicName);
   }
 
-  async produce(event: TEvent) {
+  async produce(event: TEvent, key: Uint8Array | null) {
     await this.#producer.send({
       topic: this.#topicName,
       messages: [
         {
           value: Buffer.from(this.#serializer.serialize(event)),
+          key: key ? Buffer.from(key) : null,
         },
       ],
     });
