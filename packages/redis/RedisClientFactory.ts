@@ -47,6 +47,12 @@ export interface RedisClient<TModel> {
   get(key: RedisKey): Promise<TModel | undefined>;
   set(key: RedisKey, value: TModel): Promise<void>;
   exists(key: RedisKey): Promise<boolean>;
+  delete(key: RedisKey): Promise<RedisDeleteResult>;
+}
+
+export enum RedisDeleteResult {
+  NoOp = "NOOP",
+  Deleted = "DELETED",
 }
 
 export enum RedisNamespacingMethod {
@@ -94,6 +100,14 @@ export class PrefixNamespacedRedisClient<TModel>
       Buffer.from(this.#codec.serialize(value)),
     );
   }
+
+  async delete(key: RedisKey): Promise<RedisDeleteResult> {
+    const res = await this.#client.del(this.#key(key));
+    if (res === 1) {
+      return RedisDeleteResult.Deleted;
+    }
+    return RedisDeleteResult.NoOp;
+  }
 }
 
 export class HashNamespacedRedisClient<TModel> implements RedisClient<TModel> {
@@ -130,5 +144,13 @@ export class HashNamespacedRedisClient<TModel> implements RedisClient<TModel> {
       key,
       Buffer.from(this.#codec.serialize(value)),
     );
+  }
+
+  async delete(key: RedisKey): Promise<RedisDeleteResult> {
+    const res = await this.#client.hdel(this.namespace, key);
+    if (res === 1) {
+      return RedisDeleteResult.Deleted;
+    }
+    return RedisDeleteResult.NoOp;
   }
 }
