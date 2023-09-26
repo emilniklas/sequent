@@ -15,6 +15,10 @@ export class IndexFactory
   async make<TModel>(namespace: string): Promise<ElasticSearchIndex<TModel>> {
     return new ElasticSearchIndex(this.#client, namespace);
   }
+
+  async onCatchUp(client: ElasticSearchIndex<any>) {
+    await client.refresh();
+  }
 }
 
 export class ElasticSearchIndex<TModel> {
@@ -26,6 +30,10 @@ export class ElasticSearchIndex<TModel> {
     this.#indexName = indexName;
   }
 
+  refresh(params?: Omit<T.IndicesRefreshRequest, "index">) {
+    return this.#client.indices.refresh({ ...params, index: this.#indexName });
+  }
+
   index(params: Omit<T.IndexRequest<TModel>, "index">) {
     return this.#client.index<TModel>({
       ...params,
@@ -34,8 +42,11 @@ export class ElasticSearchIndex<TModel> {
   }
 
   search<TAggregations = Record<T.AggregateName, T.AggregationsAggregate>>(
-    params: Omit<T.SearchRequest, "index">
+    params: Omit<T.SearchRequest, "index">,
   ) {
-    return this.#client.search<TModel, TAggregations>(params);
+    return this.#client.search<TModel, TAggregations>({
+      ...params,
+      index: this.#indexName,
+    });
   }
 }
