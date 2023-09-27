@@ -5,9 +5,6 @@
     "target": "esnext",
     "module": "nodenext",
     "declaration": true,
-    "declarationMap": true,
-    "types": [
-      "bun-types"
-    ]
+    "declarationMap": true
   }
 }

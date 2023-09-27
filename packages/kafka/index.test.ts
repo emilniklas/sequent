@@ -1,39 +1,36 @@
 import "@sequent/core";
 import * as kafka from "kafkajs";
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { after, before, describe, it } from "node:test";
+import assert from "node:assert";
+import { ChildProcess, spawn } from "node:child_process";
 import { KafkaTopicFactory } from "./KafkaTopicFactory.js";
 import { ConsumerGroup } from "@sequent/core";
-import { Subprocess } from "bun";
 import getPort from "get-port";
 import { constants } from "node:os";
 
-describe("@sequent/in-memory", () => {
-  let subprocess!: Subprocess;
+describe("@sequent/kafka", () => {
+  let subprocess!: ChildProcess;
   let onExit!: Promise<unknown>;
   let factory!: KafkaTopicFactory;
-  beforeAll(async () => {
+  before(async () => {
     const port = await getPort({
       port: [9092, ...Array.from(new Array(30), (_, i) => 9094 + i)],
     });
     onExit = new Promise<unknown>((onExit) => {
-      subprocess = Bun.spawn({
-        cmd: [
-          "docker",
-          "run",
-          "--rm",
-          `-p${port}:${port}`,
-          "redpandadata/redpanda",
-          "redpanda",
-          "start",
-          "--mode",
-          "dev-container",
-          "--overprovisioned",
-          "--default-log-level=error",
-          "--kafka-addr",
-          `0.0.0.0:${port}`,
-        ],
-        onExit,
-      });
+      subprocess = spawn("docker", [
+        "run",
+        "--rm",
+        `-p${port}:${port}`,
+        "redpandadata/redpanda",
+        "redpanda",
+        "start",
+        "--mode",
+        "dev-container",
+        "--overprovisioned",
+        "--default-log-level=error",
+        "--kafka-addr",
+        `0.0.0.0:${port}`,
+      ]).once("exit", onExit);
     });
     factory = new KafkaTopicFactory(
       new kafka.Kafka({
@@ -43,7 +40,7 @@ describe("@sequent/in-memory", () => {
     );
   });
 
-  afterAll(async () => {
+  after(async () => {
     await factory[Symbol.asyncDispose]();
     subprocess.kill(constants.signals.SIGTERM);
     await onExit;
@@ -51,7 +48,7 @@ describe("@sequent/in-memory", () => {
 
   it("implements topic factory", async () => {
     const topic = await factory.make<number>("test");
-    expect(topic.name).toBe("test");
+    assert.equal(topic.name, "test");
 
     const producer = await topic.producer();
     const consumer = await topic.consumer(ConsumerGroup.anonymous());
@@ -75,6 +72,6 @@ describe("@sequent/in-memory", () => {
 
     await consuming;
 
-    expect(sum).toBe(10);
+    assert.equal(sum, 10);
   });
 });

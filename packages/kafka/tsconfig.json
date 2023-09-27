@@ -6,9 +6,6 @@
     "module": "nodenext",
     "declaration": true,
     "declarationMap": true,
-    "skipLibCheck": true,
-    "types": [
-      "bun-types"
-    ]
+    "skipLibCheck": true
   }
 }

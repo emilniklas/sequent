@@ -38,10 +38,7 @@ export class FileTopic<TEvent> implements Topic<TEvent> {
     codec: Codec<TEvent>,
   ): Promise<FileTopic<TEvent>> {
     let handle = await open(path.join(directory, name + ".log"), "a+");
-    if (typeof handle !== "number") {
-      handle = (handle as { fd: number }).fd;
-    }
-    return new FileTopic(name, directory, handle, codec);
+    return new FileTopic(name, directory, handle.fd, codec);
   }
 
   async append(bytes: Uint8Array) {

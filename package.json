@@ -1,13 +1,16 @@
 {
   "name": "sequent",
+  "type": "module",
   "devDependencies": {
-    "prettier": "^3.0.3"
+    "prettier": "^3.0.3",
+    "ts-node": "^10.9.1"
   },
   "private": true,
   "scripts": {
-    "format": "prettier --write packages/**/*.ts",
-    "build": "ls packages | xargs -I% -- bun --cwd packages/% build",
-    "check": "ls packages | xargs -I% -- bun --cwd packages/% check"
+    "format": "prettier --write 'packages/**/*.ts'",
+    "build": "yarn workspaces run build",
+    "check": "yarn workspaces run check",
+    "test": "yarn workspaces run check && node --loader ts-node/esm --test $(find packages -iname '*.test.ts')"
   },
   "workspaces": [
     "packages/*"

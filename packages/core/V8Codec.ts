@@ -1,5 +1,4 @@
 import { Codec, Deserializer, Serializer } from "./Codec.js";
-// @ts-expect-error
 import * as v8 from "node:v8";
 
 export class V8Codec<TElement> implements Codec<TElement> {

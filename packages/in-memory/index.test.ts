@@ -1,5 +1,7 @@
 import "@sequent/core";
-import { describe, expect, it } from "bun:test";
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import { setImmediate } from "node:timers/promises";
 import { InMemoryTopicFactory } from "./InMemoryTopicFactory.js";
 import {
   InMemoryDatabase,
@@ -12,7 +14,7 @@ describe("@sequent/in-memory", () => {
     const factory = new InMemoryTopicFactory();
 
     const topic = await factory.make<number>("test");
-    expect(topic.name).toBe("test");
+    assert.equal(topic.name, "test");
 
     const producer = await topic.producer();
     const consumer = await topic.consumer(ConsumerGroup.anonymous());
@@ -30,9 +32,9 @@ describe("@sequent/in-memory", () => {
 
     await producer.produce(6);
 
-    await Bun.sleep(0);
+    await setImmediate();
 
-    expect(sum).toBe(10);
+    assert.equal(sum, 10);
   });
 
   it("works with the full model", async () => {
@@ -67,12 +69,12 @@ describe("@sequent/in-memory", () => {
       );
       const client = await InMemoryEntity.start(topicFactory, clientFactory);
 
-      await Bun.sleep(0);
+      await setImmediate();
 
-      expect(Array.from(client.all(), (e) => e.model)).toEqual([
-        { name: "First" },
-        { name: "Second" },
-      ]);
+      assert.deepEqual(
+        Array.from(client.all(), (e) => e.model),
+        [{ name: "First" }, { name: "Second" }],
+      );
     }
 
     await producer.produce({ name: "Third" });
@@ -86,13 +88,12 @@ describe("@sequent/in-memory", () => {
       );
       const client = await InMemoryEntity.start(topicFactory, clientFactory);
 
-      await Bun.sleep(0);
+      await setImmediate();
 
-      expect(Array.from(client.all(), (e) => e.model)).toEqual([
-        { name: "First!" },
-        { name: "Second!" },
-        { name: "Third!" },
-      ]);
+      assert.deepEqual(
+        Array.from(client.all(), (e) => e.model),
+        [{ name: "First!" }, { name: "Second!" }, { name: "Third!" }],
+      );
     }
   });
 
@@ -144,7 +145,7 @@ describe("@sequent/in-memory", () => {
       await envelope[Symbol.asyncDispose]();
     }
 
-    expect(events).toEqual([
+    assert.deepEqual(events, [
       { a: "example1", b: "example2".length },
       { a: "example2", b: 1000 },
     ]);

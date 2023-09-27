@@ -1,8 +1,8 @@
 {
   "name": "@sequent/core",
+  "version": "0.1.0",
   "type": "module",
   "devDependencies": {
-    "bun-types": "^1.0.2",
     "typescript": "^5.2.2"
   },
   "exports": {
