@@ -1,6 +1,6 @@
 {
   "name": "@sequent/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "devDependencies": {
     "typescript": "^5.2.2"

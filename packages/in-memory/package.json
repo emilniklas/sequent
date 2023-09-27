@@ -1,12 +1,12 @@
 {
   "name": "@sequent/in-memory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "peerDependencies": {
     "@sequent/core": "*"
   },
   "devDependencies": {
-    "@sequent/core": "^0.1.0",
+    "@sequent/core": "^0.1.1",
     "typescript": "^5.2.2"
   },
   "exports": {

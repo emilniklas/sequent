@@ -1,6 +1,6 @@
 {
   "name": "@sequent/file",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "dependencies": {
     "lockfile": "^1.0.2"
@@ -9,7 +9,7 @@
     "@sequent/core": "*"
   },
   "devDependencies": {
-    "@sequent/core": "^0.1.0",
+    "@sequent/core": "^0.1.1",
     "@types/lockfile": "^1.0.2",
     "typescript": "^5.2.2"
   },

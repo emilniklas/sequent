@@ -1,13 +1,13 @@
 {
   "name": "@sequent/kafka",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "peerDependencies": {
     "@sequent/core": "*",
     "kafkajs": "^2.2.4"
   },
   "devDependencies": {
-    "@sequent/core": "^0.1.0",
+    "@sequent/core": "^0.1.1",
     "get-port": "^7.0.0",
     "kafkajs": "^2.2.4",
     "typescript": "^5.2.2"

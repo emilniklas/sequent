@@ -1,13 +1,13 @@
 {
   "name": "@sequent/mongodb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "peerDependencies": {
     "@sequent/core": "*",
     "mongodb": "^6.1.0"
   },
   "devDependencies": {
-    "@sequent/core": "^0.1.0",
+    "@sequent/core": "^0.1.1",
     "mongodb": "^6.1.0",
     "typescript": "^5.2.2"
   },
