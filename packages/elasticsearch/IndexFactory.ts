@@ -30,12 +30,25 @@ export class ElasticSearchIndex<TModel> {
     this.#indexName = indexName;
   }
 
+  createIndex(params?: Omit<T.IndicesCreateRequest, "index">) {
+    return this.#client.indices.create({ ...params, index: this.#indexName });
+  }
+
   refresh(params?: Omit<T.IndicesRefreshRequest, "index">) {
     return this.#client.indices.refresh({ ...params, index: this.#indexName });
   }
 
   index(params: Omit<T.IndexRequest<TModel>, "index">) {
     return this.#client.index<TModel>({
+      ...params,
+      index: this.#indexName,
+    });
+  }
+
+  update<TReturnDocument = unknown>(
+    params: Omit<T.UpdateRequest<TModel, Partial<TModel>>, "index">,
+  ) {
+    return this.#client.update<TModel, Partial<TModel>, TReturnDocument>({
       ...params,
       index: this.#indexName,
     });
