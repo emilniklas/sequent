@@ -17,6 +17,7 @@
     ".": "./dist/index.js"
   },
   "scripts": {
+    "prepublish": "tsc -p tsconfig.build.json",
     "build": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit"
   }
