@@ -5,10 +5,13 @@ import { Topic } from "./Topic.js";
 import { TypeSpec } from "./TypeSpec.js";
 
 export class EventProducer<TEvent> implements Producer<TEvent> {
+  static readonly #ENCODER = new TextEncoder();
+
   readonly #spec: TypeSpec;
   readonly #inner: Producer<RawEvent<TEvent>>;
   readonly #topic: Topic<RawEvent<TEvent>>;
   readonly runningMigrations: RunningMigration<any, any>[];
+  readonly #keyer?: (event: TEvent) => Uint8Array | null;
 
   constructor(
     spec: TypeSpec,
@@ -20,6 +23,35 @@ export class EventProducer<TEvent> implements Producer<TEvent> {
     this.#inner = inner;
     this.#topic = topic;
     this.runningMigrations = runningMigrations;
+
+    if (TypeSpec.isRecord(spec) && "id" in spec.spec) {
+      let idSpec = spec.spec.id;
+      while (TypeSpec.isOptional(idSpec)) {
+        idSpec = idSpec.spec;
+      }
+
+      if (TypeSpec.isBytes(idSpec)) {
+        this.#keyer = (evt) => (evt as { id?: Uint8Array }).id ?? null;
+      } else if (TypeSpec.isString(idSpec)) {
+        this.#keyer = (evt) => {
+          const id = (evt as { id?: string }).id;
+          if (id == null) {
+            return null;
+          }
+          return EventProducer.#ENCODER.encode(id);
+        };
+      } else if (TypeSpec.isNumber(idSpec)) {
+        this.#keyer = (evt) => {
+          const id = (evt as { id?: number }).id;
+          if (id == null) {
+            return null;
+          }
+          const data = new Float64Array(1);
+          data[0] = id;
+          return new Uint8Array(data);
+        };
+      }
+    }
   }
 
   toString() {
@@ -30,15 +62,16 @@ export class EventProducer<TEvent> implements Producer<TEvent> {
 
   async produce(
     event: TEvent,
-    key: string | Uint8Array | null = null,
+    key?: string | Uint8Array | null,
   ): Promise<void> {
     this.#spec.assert(event);
+
     await this.#inner.produce(
       {
         timestamp: Date.now(),
         message: event,
       },
-      key ? Buffer.from(key) : null,
+      key ? Buffer.from(key) : this.#keyer?.(event) ?? null,
     );
   }
 

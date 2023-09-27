@@ -447,4 +447,16 @@ export namespace TypeSpec {
   export function isOptional(spec: TypeSpec): spec is Optional<TypeSpec> {
     return spec.type === OPTIONAL;
   }
+
+  export function isBytes(spec: TypeSpec): spec is Bytes {
+    return spec.type === BYTES;
+  }
+
+  export function isString(spec: TypeSpec): spec is String {
+    return spec.type === STRING;
+  }
+
+  export function isNumber(spec: TypeSpec): spec is Number {
+    return spec.type === NUMBER;
+  }
 }
