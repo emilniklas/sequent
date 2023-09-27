@@ -14,6 +14,7 @@ export interface ReadModelClientFactory<TClient> {
 export type Ingestor<TEvent, TClient> = (
   event: Event<TEvent>,
   client: TClient,
+  key: Uint8Array | null,
 ) => void | Promise<void>;
 
 interface RegisteredIngestor<TEvent, TClient> {
@@ -154,17 +155,22 @@ export class ReadModel<TClient extends object> {
             catchUpOptions,
           });
 
-          return new ConsumerIngestor(consumer, ingestor, client);
+          return new ConsumerIngestor(
+            consumer,
+            ingestor,
+            client,
+            catchUpOptions?.catchUpDelayMs,
+            signal,
+          );
         }),
       ),
-      catchUpOptions,
     );
 
     ingestionLogger.info("Ingesting events");
 
     (async () => {
       while (!stack.disposed) {
-        await ingestor.next(signal);
+        await ingestor.next();
       }
     })();
 
@@ -179,26 +185,15 @@ export class ReadModel<TClient extends object> {
 }
 
 class MultiConsumerIngestor<TClient> {
-  static readonly #DEFAULT_TIMEOUT_MS = 300;
-
   readonly #consumerIngestors: ConsumerIngestor<any, TClient>[];
-  readonly #timeoutMs: number;
 
-  constructor(
-    consumerIngestors: ConsumerIngestor<any, TClient>[],
-    catchUpOptions?: Partial<CatchUpOptions>,
-  ) {
+  constructor(consumerIngestors: ConsumerIngestor<any, TClient>[]) {
     this.#consumerIngestors = consumerIngestors;
-    this.#timeoutMs = MultiConsumerIngestor.#DEFAULT_TIMEOUT_MS;
-
-    if (catchUpOptions?.catchUpDelayMs != null) {
-      this.#timeoutMs = catchUpOptions.catchUpDelayMs * 0.7;
-    }
   }
 
-  async next(signal?: AbortSignal): Promise<void> {
+  async next(): Promise<void> {
     const peekedDates = await Promise.all(
-      this.#consumerIngestors.map((ci) => ci.peek(this.#timeoutMs, signal)),
+      this.#consumerIngestors.map((ci) => ci.peek()),
     );
 
     let earliestDate: Date | undefined;
@@ -218,71 +213,116 @@ class MultiConsumerIngestor<TClient> {
     }
 
     if (earliestIndex == null) {
-      await Promise.race(
-        this.#consumerIngestors.map((ci) => ci.peek(Infinity, signal)),
-      );
+      await Promise.race(this.#consumerIngestors.map((ci) => ci.ready()));
 
-      return this.next(signal);
+      return this.next();
     }
 
-    await this.#consumerIngestors[earliestIndex].take(signal);
+    await this.#consumerIngestors[earliestIndex].take();
+  }
+}
+
+class Prefetch<TEvent> {
+  readonly #consumer: Consumer<Event<TEvent>>;
+  readonly #timeoutMs: number = 300;
+  readonly #signal?: AbortSignal;
+
+  constructor(
+    consumer: Consumer<Event<TEvent>>,
+    catchUpDelayMs?: number,
+    signal?: AbortSignal,
+  ) {
+    this.#consumer = consumer;
+    this.#signal = signal;
+    if (catchUpDelayMs != null) {
+      this.#timeoutMs = catchUpDelayMs * 0.7;
+    }
+
+    this.#startPrefetch();
+  }
+
+  #prefetching!: Promise<void>;
+  #prefetchingWithTimeout!: Promise<void>;
+  #prefetched?: Envelope<Event<TEvent>>;
+
+  #startPrefetch() {
+    if (this.#signal?.aborted) {
+      return;
+    }
+
+    this.#prefetching = this.#consumer
+      .consume({ signal: this.#signal })
+      .then((envelope) => {
+        this.#prefetched = envelope;
+      });
+
+    this.#prefetchingWithTimeout = Promise.race([
+      this.#prefetching,
+      new Promise<void>((r) => setTimeout(r, this.#timeoutMs)),
+    ]);
+  }
+
+  async ready() {
+    await this.#prefetching;
+  }
+
+  /**
+   * This method "peeks" at the prefetched message. It waits for
+   * the prefetch to conclude (if it hasn't already) before doing
+   * so. However, if the prefetch is taking more than `#timeoutMs`,
+   * then `peek()` will start returning `undefined` until a new
+   * prefetch message comes in.
+   */
+  async peek(): Promise<Date | undefined> {
+    await this.#prefetchingWithTimeout;
+    return this.#prefetched?.event.timestamp;
+  }
+
+  /**
+   * This method waits until the prefetch is definitely done
+   * (or cancelled) if it isn't already and returns the
+   * prefetched envelope, removing it from the state and
+   * starts prefetching another.
+   */
+  async take(): Promise<Envelope<Event<TEvent>> | undefined> {
+    await this.#prefetching;
+    const envelope = this.#prefetched;
+    this.#prefetched = undefined;
+    this.#startPrefetch();
+    return envelope;
   }
 }
 
 class ConsumerIngestor<TEvent, TClient> {
-  readonly #consumer: Consumer<Event<TEvent>>;
+  readonly #prefetch: Prefetch<TEvent>;
   readonly #ingestor: Ingestor<TEvent, TClient>;
   readonly #client: TClient;
-  #prefetched?:
-    | Promise<Envelope<Event<TEvent>> | undefined>
-    | Envelope<Event<TEvent>>;
 
   constructor(
     consumer: Consumer<Event<TEvent>>,
     ingestor: Ingestor<TEvent, TClient>,
     client: TClient,
+    catchUpDelayMs?: number,
+    signal?: AbortSignal,
   ) {
-    this.#consumer = consumer;
+    this.#prefetch = new Prefetch(consumer, catchUpDelayMs, signal);
     this.#ingestor = ingestor;
     this.#client = client;
   }
 
-  #prefetch(
-    signal?: AbortSignal,
-  ): Promise<Envelope<Event<TEvent>> | undefined> {
-    if (!this.#prefetched) {
-      this.#prefetched = this.#consumer
-        .consume({ signal })
-        .then((envelope) => {
-          this.#prefetched = envelope;
-          return envelope;
-        })
-        .catch((e) => {
-          this.#prefetched = undefined;
-          throw e;
-        });
-    }
-
-    return Promise.resolve(this.#prefetched);
+  async peek(): Promise<Date | undefined> {
+    return this.#prefetch.peek();
   }
 
-  peek(timeoutMs: number, signal?: AbortSignal): Promise<Date | undefined> {
-    return Promise.race([
-      this.#prefetch(signal).then((e) => e?.event.timestamp),
-      new Promise<undefined>((r) => {
-        if (isFinite(timeoutMs)) {
-          setTimeout(r, timeoutMs);
-        }
-      }),
-    ]);
+  async ready() {
+    await this.#prefetch.ready();
   }
 
-  async take(signal?: AbortSignal): Promise<void> {
-    const envelope = await this.#prefetch(signal);
-    this.#prefetched = undefined;
+  async take(): Promise<void> {
+    const envelope = await this.#prefetch.take();
     if (envelope) {
       try {
-        await this.#ingestor(envelope.event, this.#client);
+        await this.#ingestor(envelope.event, this.#client, envelope.key);
       } catch (e) {
         await envelope.nack();
         throw e;
