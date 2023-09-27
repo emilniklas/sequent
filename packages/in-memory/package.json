@@ -6,7 +6,7 @@
     "@sequent/core": "*"
   },
   "devDependencies": {
-    "@sequent/core": "file:../core",
+    "@sequent/core": "^0.1.0",
     "typescript": "^5.2.2"
   },
   "exports": {
