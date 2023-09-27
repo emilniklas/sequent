@@ -1,4 +1,5 @@
 export type TypeSpec =
+  | TypeSpec.Bytes
   | TypeSpec.String
   | TypeSpec.Number
   | TypeSpec.Boolean
@@ -103,6 +104,29 @@ export namespace TypeSpec {
     assert(value: unknown) {
       if (typeof value !== "string") {
         throw new AssertionError("is not a string");
+      }
+    }
+  })();
+
+  const BYTES = Symbol("TypeSpec.Bytes");
+  export interface Bytes extends TypeSpecOperators {
+    readonly type: typeof BYTES;
+    readonly [TYPE_OF]?: () => Uint8Array;
+    toString(): string;
+    assert(value: unknown): asserts value is Uint8Array;
+  }
+  export const Bytes: Bytes = new (class StringSpec extends BaseTypeSpec {
+    readonly type: typeof BYTES = BYTES;
+    toString() {
+      return "Bytes";
+    }
+    assert(value: unknown) {
+      if (
+        !value ||
+        typeof value !== "object" ||
+        !(value instanceof Uint8Array)
+      ) {
+        throw new AssertionError("is not a Uint8Array");
       }
     }
   })();
