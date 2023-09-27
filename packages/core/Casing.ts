@@ -8,6 +8,8 @@ export type Casing =
 
 export namespace Casing {
   abstract class Casing {
+    abstract readonly suffixSeparator: string;
+
     convert(input: string): string {
       return this.assemble(
         input
@@ -21,6 +23,8 @@ export namespace Casing {
   }
 
   class CamelCaseCasing extends Casing {
+    readonly suffixSeparator = "_";
+
     assemble(words: string[]): string {
       return words
         .map((w, i) => (i === 0 ? w : w[0].toUpperCase() + w.slice(1)))
@@ -32,6 +36,8 @@ export namespace Casing {
   export type camelCase = typeof camelCase;
 
   class SnakeCaseCasing extends Casing {
+    readonly suffixSeparator = "_";
+
     assemble(words: string[]): string {
       return words.join("_");
     }
@@ -41,6 +47,8 @@ export namespace Casing {
   export type snake_case = typeof snake_case;
 
   class ScreamingSnakeCaseCasing extends Casing {
+    readonly suffixSeparator = "_";
+
     assemble(words: string[]): string {
       return words.map((w) => w.toUpperCase()).join("_");
     }
@@ -50,6 +58,8 @@ export namespace Casing {
   export type SCREAMING_SNAKE_CASE = typeof SCREAMING_SNAKE_CASE;
 
   class PascalCaseCasing extends Casing {
+    readonly suffixSeparator = "_";
+
     assemble(words: string[]): string {
       return words.map((w) => w[0].toUpperCase() + w.slice(1)).join("");
     }
@@ -59,6 +69,8 @@ export namespace Casing {
   export type PascalCase = typeof PascalCase;
 
   class TitleCaseCasing extends Casing {
+    readonly suffixSeparator = " ";
+
     assemble(words: string[]): string {
       return words.map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
     }
@@ -68,6 +80,8 @@ export namespace Casing {
   export type TitleCase = typeof TitleCase;
 
   class SentenceCaseCasing extends Casing {
+    readonly suffixSeparator = " ";
+
     assemble(words: string[]): string {
       return words
         .map((w, i) => (i === 0 ? w[0].toUpperCase() + w.slice(1) : w))
@@ -79,6 +93,8 @@ export namespace Casing {
   export type sentenceCase = typeof sentenceCase;
 
   class KebabCaseCasing extends Casing {
+    readonly suffixSeparator = "-";
+
     assemble(words: string[]): string {
       return words.join("-");
     }

@@ -104,9 +104,9 @@ export class ReadModel<TClient extends object> {
     ).join("");
 
     const namespace =
-      clientFactory.namingConvention
-        .convert(`${this.#name}_HASH`)
-        .slice(0, -3) + digest;
+      clientFactory.namingConvention.convert(this.#name) +
+      clientFactory.namingConvention.suffixSeparator +
+      digest;
 
     const client = await clientFactory.make(namespace);
 
