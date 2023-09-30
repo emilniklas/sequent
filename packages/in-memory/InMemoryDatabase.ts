@@ -36,7 +36,8 @@ export class InMemoryDatabaseReadModelClientFactory
   readonly namingConvention = Casing.camelCase;
   readonly #cache: Record<string, InMemoryDatabase<any>> = {};
 
-  async make<TModel>(namespace: string): Promise<InMemoryDatabase<TModel>> {
-    return (this.#cache[namespace] ??= new InMemoryDatabase(namespace));
+  async make<TModel>(namespace: string[]): Promise<InMemoryDatabase<TModel>> {
+    const name = namespace.join("/");
+    return (this.#cache[name] ??= new InMemoryDatabase(name));
   }
 }

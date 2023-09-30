@@ -1,3 +1,4 @@
+import { Aggregate } from "./Aggregate.js";
 import { Consumer, ConsumerGroup } from "./Consumer.js";
 import { CatchUpOptions, EventConsumer } from "./EventConsumer.js";
 import { EventProducer } from "./EventProducer.js";
@@ -28,17 +29,20 @@ export class EventType<TEvent> {
   readonly #spec: TypeSpec;
   readonly #migrators: Migrator<any, any>[];
   readonly #nonce: number;
+  readonly #aggregate?: Aggregate;
 
   constructor(
     name: string,
     spec: TypeSpec,
     migrators: Migrator<any, any>[],
     nonce: number,
+    aggregate?: Aggregate,
   ) {
     this.name = name;
     this.#spec = spec;
     this.#migrators = migrators;
     this.#nonce = nonce;
+    this.#aggregate = aggregate;
   }
 
   static new<TSpec extends TypeSpec>(
@@ -49,8 +53,24 @@ export class EventType<TEvent> {
     return new EventType<TypeOf<TSpec>>(name, spec, [], nonce);
   }
 
+  get spec(): TypeSpec {
+    return this.#spec;
+  }
+
+  withinAggregate(aggregate: Aggregate) {
+    return new EventType<TEvent>(
+      this.name,
+      this.spec,
+      this.#migrators,
+      this.#nonce,
+      aggregate,
+    );
+  }
+
   toString() {
-    return `${this.name} ${this.#spec}`;
+    return `${this.name}${
+      this.#aggregate == null ? "" : ` (${this.#aggregate.name})`
+    } ${this.#spec}`;
   }
 
   async topicName(): Promise<string> {
@@ -64,7 +84,9 @@ export class EventType<TEvent> {
       (b) => b.toString(16).padStart(2, "0"),
     ).join("");
 
-    return `${this.name}-${hashDigest}`;
+    return [this.#aggregate?.name, this.name, hashDigest]
+      .filter(Boolean)
+      .join("-");
   }
 
   async topic(topicFactory: TopicFactory): Promise<Topic<RawEvent<TEvent>>> {
@@ -95,10 +117,11 @@ export class EventType<TEvent> {
     const topic = await this.topic(topicFactory);
 
     return new EventProducer(
-      this.#spec,
+      this,
       await topic.producer(),
       topic,
       runningMigrations,
+      this.#aggregate,
     );
   }
 

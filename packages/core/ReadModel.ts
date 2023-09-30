@@ -1,3 +1,4 @@
+import { Aggregate } from "./Aggregate.js";
 import { Casing } from "./Casing.js";
 import { Consumer, ConsumerGroup, Envelope } from "./Consumer.js";
 import { CatchUpOptions } from "./EventConsumer.js";
@@ -7,7 +8,7 @@ import { TopicFactory } from "./TopicFactory.js";
 
 export interface ReadModelClientFactory<TClient> {
   readonly namingConvention: Casing;
-  make(namespace: string): Promise<TClient>;
+  make<TModel>(namespace: string[]): Promise<TClient>;
   onCatchUp?(client: TClient): void | Promise<void>;
 }
 
@@ -78,10 +79,12 @@ export class ReadModel<TClient extends object> {
       signal,
       logger = Logger.DEFAULT,
       catchUpOptions,
+      aggregate,
     }: {
       signal?: AbortSignal;
       logger?: Logger;
       catchUpOptions?: Partial<CatchUpOptions>;
+      aggregate?: Aggregate;
     } = {},
   ): Promise<TClient> {
     const data = this.#initializers
@@ -103,10 +106,18 @@ export class ReadModel<TClient extends object> {
       (b) => b.toString(16).padStart(2, "0"),
     ).join("");
 
-    const namespace =
-      clientFactory.namingConvention.convert(this.#name) +
-      clientFactory.namingConvention.suffixSeparator +
-      digest;
+    const namespace = [
+      clientFactory.namingConvention.convert(this.#name),
+      clientFactory.namingConvention.convert("v") + digest,
+    ];
+
+    if (aggregate) {
+      for (const { eventType } of this.#ingestors) {
+        aggregate.assertValidEventType(eventType);
+      }
+
+      namespace.unshift(clientFactory.namingConvention.convert(aggregate.name));
+    }
 
     const client = await clientFactory.make(namespace);
 

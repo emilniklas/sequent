@@ -1,4 +1,5 @@
-import { RawEvent } from "./EventType.js";
+import { Aggregate } from "./Aggregate.js";
+import { EventType, RawEvent } from "./EventType.js";
 import { RunningMigration } from "./Migrator.js";
 import { Producer } from "./Producer.js";
 import { Topic } from "./Topic.js";
@@ -7,22 +8,27 @@ import { TypeSpec } from "./TypeSpec.js";
 export class EventProducer<TEvent> implements Producer<TEvent> {
   static readonly #ENCODER = new TextEncoder();
 
-  readonly #spec: TypeSpec;
+  readonly #eventType: EventType<TEvent>;
   readonly #inner: Producer<RawEvent<TEvent>>;
   readonly #topic: Topic<RawEvent<TEvent>>;
   readonly runningMigrations: RunningMigration<any, any>[];
   readonly #keyer?: (event: TEvent) => Uint8Array | null;
+  readonly #aggregate?: Aggregate;
 
   constructor(
-    spec: TypeSpec,
+    eventType: EventType<TEvent>,
     inner: Producer<RawEvent<TEvent>>,
     topic: Topic<RawEvent<TEvent>>,
     runningMigrations: RunningMigration<any, any>[],
+    aggregate?: Aggregate,
   ) {
-    this.#spec = spec;
+    this.#eventType = eventType;
     this.#inner = inner;
     this.#topic = topic;
     this.runningMigrations = runningMigrations;
+    this.#aggregate = aggregate;
+
+    const spec = eventType.spec;
 
     if (TypeSpec.isRecord(spec) && "id" in spec.spec) {
       let idSpec = spec.spec.id;
@@ -55,23 +61,43 @@ export class EventProducer<TEvent> implements Producer<TEvent> {
   }
 
   toString() {
-    return `EventProducer<${this.runningMigrations.map(
-      (m) => m.sourceTopic.name + " -> ",
-    )}${this.#topic.name}> ${this.#spec}`;
+    return `EventProducer<${this.#eventType.name}${
+      this.#aggregate == null ? "" : ` (${this.#aggregate.name})`
+    }, ${this.runningMigrations.map((m) => m.sourceTopic.name + " -> ")}${
+      this.#topic.name
+    }> ${this.#eventType.spec}`;
   }
 
   async produce(
     event: TEvent,
     key?: string | Uint8Array | null,
   ): Promise<void> {
-    this.#spec.assert(event);
+    this.#eventType.spec.assert(event);
+
+    if (this.#aggregate != null && key) {
+      throw new Error(
+        `Cannot override event key for ${this.#eventType.name} event. ${
+          this.#aggregate.name
+        } event producers derive their event keys from the "id" field.`,
+      );
+    }
+
+    const k = key ? Buffer.from(key) : this.#keyer?.(event) ?? null;
+
+    if (this.#aggregate != null && k == null) {
+      throw new Error(
+        `${
+          this.#eventType.name
+        } could not derive event key from the "id" field.`,
+      );
+    }
 
     await this.#inner.produce(
       {
         timestamp: Date.now(),
         message: event,
       },
-      key ? Buffer.from(key) : this.#keyer?.(event) ?? null,
+      k,
     );
   }
 

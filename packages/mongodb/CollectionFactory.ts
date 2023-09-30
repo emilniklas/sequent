@@ -2,7 +2,7 @@ import { Casing, ReadModelClientFactory } from "@sequent/core";
 import { Collection, CollectionOptions, Db, Document } from "mongodb";
 
 export class CollectionFactory
-  implements ReadModelClientFactory<Collection<any>>
+  implements ReadModelClientFactory<Collection<Document>>
 {
   readonly #db: Db;
   readonly #options?: CollectionOptions;
@@ -14,8 +14,8 @@ export class CollectionFactory
   }
 
   async make<TModel extends Document>(
-    namespace: string,
+    namespace: string[],
   ): Promise<Collection<TModel>> {
-    return this.#db.collection<TModel>(namespace, this.#options);
+    return this.#db.collection<TModel>(namespace.join("."), this.#options);
   }
 }

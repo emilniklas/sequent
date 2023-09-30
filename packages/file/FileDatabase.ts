@@ -66,8 +66,8 @@ export class FileDatabaseClientFactory
     this.#codec = codec;
   }
 
-  async make<TModel>(namespace: string): Promise<FileDatabase<TModel>> {
-    const dirpath = path.join(this.#directory, namespace);
+  async make<TModel>(namespace: string[]): Promise<FileDatabase<TModel>> {
+    const dirpath = path.join(this.#directory, ...namespace);
     mkdirSync(dirpath, { recursive: true });
     return new FileDatabase(dirpath, this.#codec);
   }

@@ -23,20 +23,20 @@ export class RedisClientFactory
     this.#method = opts.method ?? RedisNamespacingMethod.Prefix;
   }
 
-  async make<TModel>(namespace: string): Promise<RedisClient<TModel>> {
+  async make<TModel>(namespace: string[]): Promise<RedisClient<TModel>> {
     switch (this.#method) {
       case RedisNamespacingMethod.Prefix:
         return new PrefixNamespacedRedisClient({
           client: this.#client,
           codec: this.#codec,
-          namespace,
+          namespace: namespace.join(":"),
         });
 
       case RedisNamespacingMethod.Hash:
         return new HashNamespacedRedisClient({
           client: this.#client,
           codec: this.#codec,
-          namespace,
+          namespace: namespace.join(":"),
         });
     }
   }

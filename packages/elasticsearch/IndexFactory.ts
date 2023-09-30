@@ -12,8 +12,8 @@ export class IndexFactory
     this.#client = client;
   }
 
-  async make<TModel>(namespace: string): Promise<ElasticSearchIndex<TModel>> {
-    return new ElasticSearchIndex(this.#client, namespace);
+  async make<TModel>(namespace: string[]): Promise<ElasticSearchIndex<TModel>> {
+    return new ElasticSearchIndex(this.#client, namespace.join("-"));
   }
 
   async onCatchUp(client: ElasticSearchIndex<any>) {

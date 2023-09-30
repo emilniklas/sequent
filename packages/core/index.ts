@@ -1,5 +1,6 @@
 import "disposablestack/auto";
 
+export * from "./Aggregate.js";
 export * from "./Casing.js";
 export * from "./Codec.js";
 export * from "./Consumer.js";
