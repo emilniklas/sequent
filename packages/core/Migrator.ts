@@ -16,14 +16,14 @@ export interface RunningMigration<TSourceEvent, TDestinationEvent>
 export class Migrator<TSourceEvent, TDestinationEvent> {
   readonly #source: EventType<TSourceEvent>;
   readonly #destination: () => EventType<TDestinationEvent>;
-  readonly #migration: (source: TSourceEvent) => TDestinationEvent;
+  readonly #migration: (source: TSourceEvent) => Iterable<TDestinationEvent>;
 
   #running?: Promise<RunningMigration<TSourceEvent, TDestinationEvent>>;
 
   constructor(opts: {
     source: EventType<TSourceEvent>;
     destination: () => EventType<TDestinationEvent>;
-    migration: (source: TSourceEvent) => TDestinationEvent;
+    migration: (source: TSourceEvent) => Iterable<TDestinationEvent>;
   }) {
     this.#source = opts.source;
     this.#destination = opts.destination;
@@ -85,14 +85,16 @@ export class Migrator<TSourceEvent, TDestinationEvent> {
             continue;
           }
           try {
-            const newMessage = this.#migration(envelope.event.message);
-            await destinationProducer.produce(
-              {
-                timestamp: envelope.event.timestamp.getTime(),
-                message: newMessage,
-              },
-              envelope.key,
-            );
+            const newMessages = this.#migration(envelope.event.message);
+            for (const newMessage of newMessages) {
+              await destinationProducer.produce(
+                {
+                  timestamp: envelope.event.timestamp.getTime(),
+                  message: newMessage,
+                },
+                envelope.key,
+              );
+            }
           } catch (e) {
             await envelope.nack();
             throw e;
