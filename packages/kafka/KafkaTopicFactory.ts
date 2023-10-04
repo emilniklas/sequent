@@ -6,12 +6,22 @@ export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
   readonly #codec: Codec<any>;
   readonly #client: kafka.Kafka;
   readonly #disposableStack = new AsyncDisposableStack();
+  readonly #topicConfig: Record<string, string>;
+  readonly #assertedTopics = new Map<string, Promise<boolean> | null>();
   #admin?: kafka.Admin;
-  #assertedTopics = new Map<string, Promise<boolean> | null>();
 
-  constructor(client: kafka.Kafka, opts: { codec?: Codec<any> } = {}) {
+  constructor(
+    client: kafka.Kafka,
+    opts: { codec?: Codec<any>; topicConfig?: Record<string, string> } = {},
+  ) {
     this.#client = client;
     this.#codec = opts.codec ?? new JSONCodec();
+    this.#topicConfig = {
+      // Infinite retention by default
+      "retention.bytes": "-1",
+      "retention.ms": "-1",
+      ...opts.topicConfig,
+    };
   }
 
   async make<TEvent>(name: string): Promise<Topic<TEvent>> {
@@ -30,6 +40,9 @@ export class KafkaTopicFactory implements TopicFactory, AsyncDisposable {
           topics: [
             {
               topic: name,
+              configEntries: Object.entries(this.#topicConfig).map(
+                ([name, value]) => ({ name, value }),
+              ),
             },
           ],
         }),
