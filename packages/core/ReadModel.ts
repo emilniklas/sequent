@@ -12,6 +12,40 @@ export interface ReadModelClientFactory<TClient> {
   onCatchUp?(client: TClient): void | Promise<void>;
 }
 
+export class SimpleReadModelClientFactory<TClient>
+  implements ReadModelClientFactory<SimpleReadModelClient<TClient>>
+{
+  readonly #clientFactory: (namespace: string[]) => TClient;
+  readonly namingConvention: Casing;
+  readonly onCatchUp?: (
+    client: SimpleReadModelClient<TClient>,
+  ) => void | Promise<void>;
+
+  constructor(opts: {
+    clientFactory: (namespace: string[]) => TClient;
+    namingConvention?: Casing;
+    onCatchUp?: (
+      client: SimpleReadModelClient<TClient>,
+    ) => void | Promise<void>;
+  }) {
+    this.#clientFactory = opts.clientFactory;
+    this.namingConvention = opts.namingConvention ?? Casing.PascalCase;
+    this.onCatchUp = opts.onCatchUp;
+  }
+
+  async make(namespace: string[]): Promise<SimpleReadModelClient<TClient>> {
+    return {
+      namespace,
+      client: this.#clientFactory(namespace),
+    };
+  }
+}
+
+export interface SimpleReadModelClient<TClient> {
+  readonly client: TClient;
+  readonly namespace: string[];
+}
+
 export type Ingestor<TEvent, TClient> = (
   event: Event<TEvent>,
   client: TClient,
