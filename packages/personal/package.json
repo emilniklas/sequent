@@ -1,0 +1,22 @@
+{
+  "name": "@sequent/personal",
+  "version": "0.1.0",
+  "type": "module",
+  "peerDependencies": {
+    "@sequent/core": "*"
+  },
+  "devDependencies": {
+    "@sequent/core": "^0.1.1",
+    "@sequent/in-memory": "^0.1.1",
+    "@types/node": "^20.8.2",
+    "typescript": "^5.2.2"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "prepublish": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit"
+  }
+}
